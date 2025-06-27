@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Somar Valores</title>
+    <link rel="icon" href="images/favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="manifest" href="manifest.json">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="button-group">
+                <button id="closeCash"><i class="fas fa-cash-register"></i> Fechar Caixa</button>
+                <button id="clientesBtn"><i class="fas fa-users"></i> Clientes</button>
+                <button id="clearAll"><i class="fas fa-trash-alt"></i> Limpar Tudo</button>
+            </div>
+            <h1><i class="fas fa-calculator"></i> TOTAL: <span id="total">0,00</span></h1>
+        </div>
+        <div class="grid">
+            <!-- As células serão geradas pelo JavaScript -->
+        </div>
+    </div>
+    <!-- Página de Fechamento de Caixa -->
+    <div id="cashClosingPage" class="cash-closing-page">
+        <div class="cash-closing-grid">
+            <!-- Coluna de Inputs -->
+            <div class="cash-inputs-column">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                    <button id="backToMain" class="back-button"><i class="fas fa-arrow-left"></i> Voltar</button>
+                    <h2 class="section-title" style="margin: 0;"><i class="fas fa-cash-register"></i> Somar Caixa</h2>
+                </div>
+                <div class="cash-inputs">
+                    <div class="input-group">
+                        <div class="input-label">
+                            <i class="fas fa-money-bill-wave"></i>
+                            <label>Dinheiro de R$ 2,00</label>
+                        </div>
+                        <input type="text" id="cash2" class="currency-input" placeholder="Digite aqui" autocomplete="off">
+                    </div>
+                    <div class="input-group">
+                        <div class="input-label">
+                            <i class="fas fa-money-bill-wave"></i>
+                            <label>Dinheiro de R$ 5,00</label>
+                        </div>
+                        <input type="text" id="cash5" class="currency-input" placeholder="Digite aqui" autocomplete="off">
+                    </div>
+                    <div class="input-group">
+                        <div class="input-label">
+                            <i class="fas fa-money-bill-wave"></i>
+                            <label>Dinheiro de R$ 10,00</label>
+                        </div>
+                        <input type="text" id="cash10" class="currency-input" placeholder="Digite aqui" autocomplete="off">
+                    </div>
+                    <div class="input-group">
+                        <div class="input-label">
+                            <i class="fas fa-money-bill-wave"></i>
+                            <label>Dinheiro de R$ 20,00</label>
+                        </div>
+                        <input type="text" id="cash20" class="currency-input" placeholder="Digite aqui" autocomplete="off">
+                    </div>
+                    <div class="input-group">
+                        <div class="input-label">
+                            <i class="fas fa-money-bill-wave"></i>
+                            <label>Dinheiro de R$ 50,00</label>
+                        </div>
+                        <input type="text" id="cashLarger" class="currency-input" placeholder="Digite aqui" autocomplete="off">
+                    </div>
+                    <div class="input-group">
+                        <div class="input-label">
+                            <i class="fas fa-coins"></i>
+                            <label>Dinheiro em Moedas</label>
+                        </div>
+                        <input type="text" id="cashCoins" class="currency-input" placeholder="Digite aqui" autocomplete="off">
+                    </div>
+                    <div class="cash-total-summary" style="background: none; border: none; box-shadow: none; margin-top: 5px; padding: 0;">
+                        <div class="summary-item" style="font-size: 1em; padding: 2px 0;">
+                            <span style="color: #666; font-weight: 500;">Valor de Soma:</span>
+                            <span id="totalCashInputs" style="color: #09974b; font-weight: bold;">R$ 0,00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="cash-status-inputs">
+                    <p id="cashStatusInputs"></p>
+                </div>
+            </div>
+
+            <!-- Coluna de Resumo -->
+            <div class="cash-summary-column">
+                <div class="separate-values">
+                    <h3>Valores Separados</h3>
+                    <div class="input-group separate-input">
+                        <div class="input-label">
+                            <i class="fas fa-money-bill"></i>
+                            <label>Valor Separado</label>
+                        </div>
+                        <input type="text" id="separateValue" class="currency-input" placeholder="Digite aqui" autocomplete="off">
+                    </div>
+                </div>
+
+                <div class="cash-summary">
+                    <div class="summary-item">
+                        <span><i class="fas fa-wallet"></i> Total em Suprimentos:</span>
+                        <span id="totalCash">R$ 0,00</span>
+                    </div>
+                    <div class="summary-item">
+                        <span><i class="fas fa-money-bill-wave"></i> Total em Espécie:</span>
+                        <span id="totalSeparate">R$ 0,00</span>
+                    </div>
+                    <div class="summary-item">
+                        <span>
+                            <span style="display:inline-flex;align-items:center;">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50" width="1.25em" height="1.25em" style="margin-right:7px;vertical-align:middle;fill:#09974b;"><path d="M 25 0.0390625 C 22.84 0.0390625 20.799531 0.88015625 19.269531 2.4101562 L 9.6796875 12 L 12.929688 12 C 14.529687 12 16.039922 12.619766 17.169922 13.759766 L 23.939453 20.529297 C 24.519453 21.109297 25.480547 21.109531 26.060547 20.519531 L 32.830078 13.759766 C 33.960078 12.619766 35.470312 12 37.070312 12 L 40.320312 12 L 30.730469 2.4101562 C 29.200469 0.88015625 27.16 0.0390625 25 0.0390625 z M 7.6796875 14 L 2.4101562 19.269531 C -0.74984375 22.429531 -0.74984375 27.570469 2.4101562 30.730469 L 7.6796875 36 L 12.929688 36 C 13.999687 36 14.999766 35.580078 15.759766 34.830078 L 22.529297 28.060547 C 23.889297 26.700547 26.110703 26.700547 27.470703 28.060547 L 34.240234 34.830078 C 35.000234 35.580078 36.000312 36 37.070312 36 L 42.320312 36 L 47.589844 30.730469 C 50.749844 27.570469 50.749844 22.429531 47.589844 19.269531 L 42.320312 14 L 37.070312 14 C 36.000313 14 35.000234 14.419922 34.240234 15.169922 L 27.470703 21.939453 C 26.790703 22.619453 25.9 22.960938 25 22.960938 C 24.1 22.960937 23.209297 22.619453 22.529297 21.939453 L 15.759766 15.169922 C 14.999766 14.419922 13.999688 14 12.929688 14 L 7.6796875 14 z M 25 29.037109 C 24.615 29.038359 24.229453 29.185469 23.939453 29.480469 L 17.169922 36.240234 C 16.039922 37.380234 14.529687 38 12.929688 38 L 9.6796875 38 L 19.269531 47.589844 C 20.799531 49.119844 22.84 49.960938 25 49.960938 C 27.16 49.960938 29.200469 49.119844 30.730469 47.589844 L 40.320312 38 L 37.070312 38 C 35.470313 38 33.960078 37.380234 32.830078 36.240234 L 26.060547 29.470703 C 25.770547 29.180703 25.385 29.035859 25 29.037109 z"/></svg>
+                                Total em Cartão e Pix:
+                            </span>
+                        </span>
+                        <span id="totalSheet">R$ 0,00</span>
+                    </div>
+                    <div class="summary-item total" id="finalTotalContainer" style="display: none;">
+                        <span><i class="fas fa-cash-register"></i> Total Fechamento de Caixa:</span>
+                        <span id="finalTotal">R$ 0,00</span>
+                        <button id="copyFinalTotal" title="Copiar valor" style="margin-left:10px; background:none; border:none; cursor:pointer; font-size:1.1em; color:#09974b; padding:2px 6px; border-radius:5px; transition:background 0.2s;">
+                            <span class="copy-svg">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" width="1em" height="1em"><path d="M384 336l-192 0c-8.8 0-16-7.2-16-16l0-256c0-8.8 7.2-16 16-16l140.1 0L400 115.9 400 320c0 8.8-7.2 16-16 16zM192 384l192 0c35.3 0 64-28.7 64-64l0-204.1c0-12.7-5.1-24.9-14.1-33.9L366.1 14.1c-9-9-21.2-14.1-33.9-14.1L192 0c-35.3 0-64 28.7-64 64l0 256c0 35.3 28.7 64 64 64zM64 128c-35.3 0-64 28.7-64 64L0 448c0 35.3 28.7 64 64 64l192 0c35.3 0 64-28.7 64-64l0-32-48 0 0 32c0 8.8-7.2 16-16 16L64 464c-8.8 0-16-7.2-16-16l0-256c0-8.8 7.2-16 16-16l32 0 0-48-32 0z"/></svg>
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Modal de Confirmação para Limpar Tudo -->
+    <div id="confirmModal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="closeModal">&times;</span>
+            <div class="modal-icon-wrapper">
+                <i class="fas fa-exclamation-triangle" style="color:#dc3545; font-size:2.3em;"></i>
+            </div>
+            <h2 class="modal-title">Confirmação</h2>
+            <p class="modal-message">Tem certeza que deseja <b>limpar tudo</b>?<br>Esta ação não pode ser desfeita.</p>
+            <div class="modal-buttons">
+                <button id="confirmYes"><i class="fas fa-check"></i> Sim</button>
+                <button id="confirmNo"><i class="fas fa-times"></i> Não</button>
+            </div>
+        </div>
+    </div>
+    <!-- Fim do Modal -->
+    <!-- Aviso de conexão -->
+    <div id="offlineNotice" style="display:none;position:fixed;bottom:4px;right:4px;z-index:2000;min-width:140px;max-width:220px;padding:6px 12px;background:#2563eb;color:#fff;border-radius:7px;box-shadow:0 2px 12px rgba(37,99,235,0.13);font-size:0.97em;font-weight:500;letter-spacing:0.1px;align-items:center;gap:7px;transition:opacity 0.3s;opacity:0.97;display:flex;align-items:center;backdrop-filter:blur(2px);border:1.5px solid #3b82f6;box-sizing:border-box;">
+      <i class="fas fa-wifi" style="margin-right:6px;font-size:1em;opacity:0.85;"></i>
+      <span style="line-height:1.2;">Sem conexão.<br><span style='font-weight:400;font-size:0.91em;opacity:0.85;'>O sistema funciona offline.</span></span>
+    </div>
+    <!-- Página de Clientes -->
+    <div id="clientesPage" class="clientes-page" style="display:none;">
+        <div class="clientes-header" style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
+            <button id="backToMainFromClientes" class="back-button"><i class="fas fa-arrow-left"></i> Voltar</button>
+            <h2 class="section-title" style="margin:0;"><i class="fas fa-users"></i> Clientes</h2>
+        </div>
+        <div class="clientes-lista">
+            <div style="display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:18px;margin-bottom:18px;width:100%;">
+                <h3 style="color:#333;font-size:1.18em;margin:0;">Lista de Clientes</h3>
+                <button id="abrirModalCliente" class="add-cliente-btn"><i class="fas fa-user-plus"></i> Adicionar Cliente</button>
+            </div>
+            <ul id="clientesLista" style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:10px;"></ul>
+        </div>
+        <!-- Modal de Adicionar Cliente -->
+        <div id="modalAddCliente" class="modal" style="display:none;align-items:center;justify-content:center;">
+            <div class="modal-content">
+                <span class="close" id="closeModalAddCliente">&times;</span>
+                <div class="modal-icon-wrapper">
+                    <i class="fas fa-user-plus" style="color:#09974b;font-size:2.3em;"></i>
+                </div>
+                <h2 class="modal-title">Adicionar Cliente</h2>
+                <form id="addClienteForm" style="display:flex;flex-direction:column;gap:12px;">
+                    <input type="text" id="clienteNome" placeholder="Nome do Cliente" required>
+                    <input type="text" id="clienteCNPJ" placeholder="CNPJ" required>
+                    <button type="submit" style="background:#09974b;color:#fff;font-weight:600;padding:10px 0;border:none;border-radius:6px;font-size:1.08em;transition:background 0.2s;">Adicionar</button>
+                </form>
+            </div>
+        </div>
+        <!-- Modal de Editar Cliente -->
+        <div id="modalEditCliente" class="modal" style="display:none;align-items:center;justify-content:center;">
+            <div class="modal-content">
+                <span class="close" id="closeModalEditCliente">&times;</span>
+                <div class="modal-icon-wrapper">
+                    <i class="fas fa-edit" style="color:#2563eb;font-size:2.3em;"></i>
+                </div>
+                <h2 class="modal-title">Editar Cliente</h2>
+                <form id="editClienteForm" style="display:flex;flex-direction:column;gap:12px;">
+                    <input type="text" id="editClienteNome" placeholder="Nome do Cliente" required>
+                    <input type="text" id="editClienteCNPJ" placeholder="CNPJ" required>
+                    <button type="submit" style="background:#2563eb;color:#fff;font-weight:600;padding:10px 0;border:none;border-radius:6px;font-size:1.08em;transition:background 0.2s;">Salvar</button>
+                </form>
+            </div>
+        </div>
+        <!-- Modal de Confirmação para Remover Cliente -->
+        <div id="confirmRemoveClienteModal" class="modal" style="display:none;align-items:center;justify-content:center;">
+            <div class="modal-content">
+                <span class="close" id="closeModalRemoveCliente">&times;</span>
+                <div class="modal-icon-wrapper">
+                    <i class="fas fa-user-times" style="color:#dc3545;font-size:2.3em;"></i>
+                </div>
+                <h2 class="modal-title">Remover Cliente</h2>
+                <p class="modal-message">Tem certeza que deseja <b>remover este cliente</b>?<br>Esta ação não pode ser desfeita.</p>
+                <div class="modal-buttons">
+                    <button id="confirmRemoveClienteYes"><i class="fas fa-check"></i> Sim</button>
+                    <button id="confirmRemoveClienteNo"><i class="fas fa-times"></i> Não</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="script.js"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('service-worker.js');
+        });
+      }
+      // Aviso de conexão offline com delay e duração
+      let offlineTimeout = null, offlineHideTimeout = null;
+      function updateOfflineNotice() {
+        const notice = document.getElementById('offlineNotice');
+        if (!notice) return;
+        clearTimeout(offlineTimeout);
+        clearTimeout(offlineHideTimeout);
+        if (!navigator.onLine) {
+          offlineTimeout = setTimeout(() => {
+            notice.style.display = 'flex';
+            offlineHideTimeout = setTimeout(() => {
+              notice.style.display = 'none';
+            }, 3000);
+          }, 5000);
+        } else {
+          notice.style.display = 'none';
+        }
+      }
+      window.addEventListener('online', updateOfflineNotice);
+      window.addEventListener('offline', updateOfflineNotice);
+      updateOfflineNotice();
+    </script>
+</body>
+</html>

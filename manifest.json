@@ -1,0 +1,16 @@
+{
+  "name": "Planilha de Cartão",
+  "short_name": "Cartão",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffd700",
+  "theme_color": "#ffd700",
+  "description": "Planilha de Cartão - funciona offline!",
+  "icons": [
+    {
+      "src": "images/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+} 
