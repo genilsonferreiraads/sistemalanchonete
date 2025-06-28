@@ -74,7 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateTotal() {
         total = 0;
-        for (let i = 1; i <= numGroups * numNotesPerGroup; i++) {
+        for (let i = 1; i <= totalPages * CELLS_PER_PAGE; i++) {
             const value = parseFloat(localStorage.getItem(`nota${i}`)) || 0;
             total += value;
         }
@@ -120,16 +120,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function clearAll() {
-        savePreviousValues(); // Salva o estado antes de limpar
-        for (let i = 1; i <= numGroups * numNotesPerGroup; i++) {
+        savePreviousValues();
+        for (let i = 1; i <= totalPages * CELLS_PER_PAGE; i++) {
             localStorage.removeItem(`nota${i}`);
             const cellInput = grid.querySelector(`.cell:nth-child(${i}) input`);
             if (cellInput) {
                 cellInput.value = '';
-                delete cellInput.dataset.originalValue; // Remove o valor original
+                delete cellInput.dataset.originalValue;
             }
         }
+        currentPage = 1;
+        totalPages = 2;
+        localStorage.removeItem('cellPage2Created');
+        savePageStateVars();
         updateTotal();
+        renderAddPageButton();
     }
 
     function findNextCell(currentCell) {
@@ -155,29 +160,47 @@ document.addEventListener('DOMContentLoaded', () => {
         return cells[nextIndex];
     }
 
-    function createCells() {
+    let currentPage = 1;
+    const CELLS_PER_PAGE = numGroups * numNotesPerGroup; // 70
+    let totalPages = 2; // Sempre 2 páginas
+
+    function getFilledCellsCount(page) {
+        let filled = 0;
+        const start = (page - 1) * CELLS_PER_PAGE + 1;
+        const end = page * CELLS_PER_PAGE;
+        for (let i = start; i <= end; i++) {
+            const value = localStorage.getItem(`nota${i}`);
+            if (value && parseFloat(value) > 0) filled++;
+        }
+        return filled;
+    }
+
+    function createCells(page = 1) {
+        grid.innerHTML = '';
+        const start = (page - 1) * CELLS_PER_PAGE + 1;
+        const end = page * CELLS_PER_PAGE;
         for (let i = 0; i < numNotesPerGroup; i++) {
             for (let j = 0; j < numGroups; j++) {
-                const notaNumber = i + 1 + j * numNotesPerGroup;
+                const notaNumber = start + i + j * numNotesPerGroup;
                 const cell = document.createElement('div');
                 cell.className = 'cell';
                 const cellLabel = document.createElement('div');
                 cellLabel.textContent = `NOTA ${notaNumber}`;
                 const cellInput = document.createElement('input');
                 cellInput.type = 'text';
-
                 const storedValue = localStorage.getItem(`nota${notaNumber}`);
                 cellInput.value = storedValue ? formatCurrency(parseFloat(storedValue)) : '';
-
                 cellInput.dataset.originalValue = storedValue ? storedValue : '';
-
                 cellInput.addEventListener('input', (e) => {
                     const value = parseInputValue(e.target.value);
                     if (value !== null) {
                         e.target.dataset.originalValue = e.target.value;
+                        localStorage.setItem(`nota${notaNumber}`, value);
+                    } else {
+                        localStorage.removeItem(`nota${notaNumber}`);
                     }
+                    renderAddPageButton();
                 });
-
                 cellInput.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter') {
                         e.preventDefault();
@@ -190,14 +213,14 @@ document.addEventListener('DOMContentLoaded', () => {
                             localStorage.removeItem(`nota${notaNumber}`);
                         }
                         updateTotal();
+                        renderAddPageButton();
                         // Foco na próxima célula SEQUENCIAL pelo número da nota
                         const nextNota = notaNumber + 1;
-                        if (nextNota <= numGroups * numNotesPerGroup) {
+                        if (nextNota <= end) {
                             const nextInput = Array.from(document.querySelectorAll('.cell input'))
                                 .find(input => input.parentElement.querySelector('div').textContent.trim() === `NOTA ${nextNota}`);
                             if (nextInput) {
-                                // Detecta mudança de coluna
-                                if (notaNumber % numNotesPerGroup === 0) {
+                                if ((notaNumber - start + 1) % numNotesPerGroup === 0) {
                                     nextInput.classList.add('col-change-animate');
                                     setTimeout(() => nextInput.classList.remove('col-change-animate'), 500);
                                 }
@@ -206,7 +229,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
                 });
-
                 cellInput.addEventListener('blur', (e) => {
                     const value = parseInputValue(e.target.value);
                     if (value !== null) {
@@ -217,25 +239,76 @@ document.addEventListener('DOMContentLoaded', () => {
                         localStorage.removeItem(`nota${notaNumber}`);
                     }
                     updateTotal();
+                    renderAddPageButton();
                 });
-
                 cellInput.addEventListener('focus', (e) => {
                     e.target.setSelectionRange(0, e.target.value.length);
                 });
-
                 cell.appendChild(cellLabel);
                 cell.appendChild(cellInput);
                 grid.appendChild(cell);
             }
         }
+        renderAddPageButton();
     }
 
-    createCells();
-    updateTotal();
+    function renderPageNavigation() {
+        let nav = document.getElementById('cellPageNav');
+        const navContainer = document.getElementById('cellPageNavContainer');
+        if (!nav) {
+            nav = document.createElement('div');
+            nav.id = 'cellPageNav';
+            nav.style.display = 'flex';
+            nav.style.justifyContent = 'flex-end';
+            nav.style.gap = '8px';
+            nav.style.margin = '0';
+            navContainer.appendChild(nav);
+        }
+        nav.innerHTML = '';
+        for (let p = 1; p <= 2; p++) {
+            const btn = document.createElement('button');
+            btn.textContent = `Página ${p}`;
+            btn.style.padding = '4px 12px';
+            btn.style.borderRadius = '6px';
+            btn.style.border = '1.5px solid #09974b';
+            btn.style.background = p === currentPage ? '#09974b' : '#fff';
+            btn.style.color = p === currentPage ? '#fff' : '#09974b';
+            btn.style.fontWeight = 'bold';
+            btn.style.cursor = 'pointer';
+            btn.onclick = () => {
+                currentPage = p;
+                localStorage.setItem('currentCellPage', currentPage);
+                renderPageNavigation();
+                createCells(currentPage);
+            };
+            nav.appendChild(btn);
+        }
+    }
 
-    // Foco automático na primeira célula vazia ao carregar a página (buscando pelo número da nota)
+    function renderAddPageButton() {
+        let btn = document.getElementById('addCellPageBtn');
+        if (btn) btn.remove();
+        // Não exibe mais o botão, pois a criação é automática
+    }
+
+    // Inicialização
+    // Descobrir quantas páginas já existem (com base no localStorage)
+    function getMaxNotaIndex() {
+        let max = 0;
+        for (let i = 1; i <= 1000; i++) {
+            if (localStorage.getItem(`nota${i}`) !== null) max = i;
+        }
+        return max;
+    }
+    // totalPages = Math.max(1, Math.ceil(getMaxNotaIndex() / CELLS_PER_PAGE)); // REMOVIDO para não sobrescrever o valor salvo
+    renderPageNavigation();
+    createCells(currentPage);
+    updateTotal();
+    // Foco automático na primeira célula vazia da página atual ao carregar
     (function focusFirstEmptyNota() {
-        for (let notaNumber = 1; notaNumber <= numGroups * numNotesPerGroup; notaNumber++) {
+        const start = (currentPage - 1) * CELLS_PER_PAGE + 1;
+        const end = currentPage * CELLS_PER_PAGE;
+        for (let notaNumber = start; notaNumber <= end; notaNumber++) {
             const cellInput = Array.from(document.querySelectorAll('.cell input'))
                 .find(input => input.parentElement.querySelector('div').textContent.trim() === `NOTA ${notaNumber}`);
             if (cellInput && (!cellInput.value || cellInput.value === '0,00')) {
@@ -1040,4 +1113,25 @@ document.addEventListener('DOMContentLoaded', () => {
             closeConfirmRemoveClienteModal();
         });
     }
+
+    // Salvar página atual e totalPages sempre que mudar de página ou criar página 2
+    function savePageStateVars() {
+        localStorage.setItem('currentCellPage', currentPage);
+        localStorage.setItem('totalCellPages', totalPages);
+    }
+
+    // Restaurar página atual e totalPages ao carregar
+    (function restorePageStateVars() {
+        const savedPage = parseInt(localStorage.getItem('currentCellPage'));
+        const savedTotal = parseInt(localStorage.getItem('totalCellPages'));
+        const page2Created = localStorage.getItem('cellPage2Created') === 'true';
+        if (!isNaN(savedPage) && savedPage > 0) currentPage = savedPage;
+        if (page2Created) {
+            totalPages = 2;
+        } else if (!isNaN(savedTotal) && savedTotal > 0) {
+            totalPages = savedTotal;
+        } else {
+            totalPages = Math.max(1, Math.ceil(getMaxNotaIndex() / CELLS_PER_PAGE));
+        }
+    })();
 });
