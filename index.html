@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Somar Valores</title>
+    <title>Restaurante Limarques</title>
     <link rel="icon" href="images/favicon.svg" type="image/svg+xml" sizes="64x64">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -11,12 +11,12 @@
 </head>
 <body>
     <div id="cellPageNavContainer" style="position:fixed;top:18px;right:24px;z-index:1200;display:flex;flex-direction:column;align-items:flex-end;gap:8px;"></div>
-    <div class="container">
+    <div class="container" style="display:none;">
         <div class="header">
             <div class="button-group">
-                <button id="closeCash"><i class="fas fa-cash-register"></i> Fechar Caixa</button>
-                <button id="clientesBtn"><i class="fas fa-users"></i> Clientes</button>
-                <button id="clearAll"><i class="fas fa-trash-alt"></i> Limpar Tudo</button>
+                <button id="closeCash"><i class="fa-solid fa-coins"></i> Fechar Caixa</button>
+                <button id="clientesBtn"><i class="fa-solid fa-user"></i> Clientes</button>
+                <button id="clearAll"><i class="fa-solid fa-trash"></i> Limpar Tudo</button>
             </div>
             <div style="text-align:center;">
                 <span style="font-size:0.75em; color:#000; display:flex; align-items:center; justify-content:center; gap:4px; margin-bottom:2px;">
@@ -161,7 +161,7 @@
     </div>
     <!-- Fim do Modal -->
     <!-- Aviso de conexão -->
-    <div id="offlineNotice" style="display:none;position:fixed;bottom:4px;right:4px;z-index:2000;min-width:140px;max-width:220px;padding:6px 12px;background:#2563eb;color:#fff;border-radius:7px;box-shadow:0 2px 12px rgba(37,99,235,0.13);font-size:0.97em;font-weight:500;letter-spacing:0.1px;align-items:center;gap:7px;transition:opacity 0.3s;opacity:0.97;display:flex;align-items:center;backdrop-filter:blur(2px);border:1.5px solid #3b82f6;box-sizing:border-box;">
+    <div id="offlineNotice" style="display:none;position:fixed;bottom:4px;right:4px;z-index:2000;min-width:140px;max-width:220px;padding:6px 12px;background:#2563eb;color:#fff;border-radius:7px;box-shadow:0 2px 12px rgba(37,99,235,0.13);font-size:0.97em;font-weight:500;letter-spacing:0.1px;align-items:center;gap:7px;transition:opacity 0.3s;opacity:0.97;align-items:center;backdrop-filter:blur(2px);border:1.5px solid #3b82f6;box-sizing:border-box;">
       <i class="fas fa-wifi" style="margin-right:6px;font-size:1em;opacity:0.85;"></i>
       <span style="line-height:1.2;">Sem conexão.<br><span style='font-weight:400;font-size:0.91em;opacity:0.85;'>O sistema funciona offline.</span></span>
     </div>
@@ -233,27 +233,36 @@
           navigator.serviceWorker.register('service-worker.js');
         });
       }
-      // Aviso de conexão offline com delay e duração
+      // Aviso de conexão offline só aparece se perder conexão DEPOIS do carregamento
       let offlineTimeout = null, offlineHideTimeout = null;
-      function updateOfflineNotice() {
+      function hideOfflineNotice() {
         const notice = document.getElementById('offlineNotice');
-        if (!notice) return;
+        if (notice) notice.style.display = 'none';
+      }
+      function showOfflineNotice() {
+        const notice = document.getElementById('offlineNotice');
+        if (notice) notice.style.display = 'flex';
+        clearTimeout(offlineHideTimeout);
+        offlineHideTimeout = setTimeout(hideOfflineNotice, 3000);
+      }
+      // Só mostra o aviso se perder conexão DEPOIS do carregamento
+      window.addEventListener('offline', function() {
+        clearTimeout(offlineTimeout);
+        offlineTimeout = setTimeout(function() {
+          if (!navigator.onLine) showOfflineNotice();
+        }, 5000);
+      });
+      window.addEventListener('online', function() {
+        clearTimeout(offlineTimeout);
+        hideOfflineNotice();
+      });
+      // Ao carregar, sempre deixa oculto, mesmo se offline
+      window.addEventListener('DOMContentLoaded', function() {
+        hideOfflineNotice();
         clearTimeout(offlineTimeout);
         clearTimeout(offlineHideTimeout);
-        if (!navigator.onLine) {
-          offlineTimeout = setTimeout(() => {
-            notice.style.display = 'flex';
-            offlineHideTimeout = setTimeout(() => {
-              notice.style.display = 'none';
-            }, 3000);
-          }, 5000);
-        } else {
-          notice.style.display = 'none';
-        }
-      }
-      window.addEventListener('online', updateOfflineNotice);
-      window.addEventListener('offline', updateOfflineNotice);
-      updateOfflineNotice();
+      });
     </script>
 </body>
 </html>
+

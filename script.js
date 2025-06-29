@@ -78,7 +78,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const value = parseFloat(localStorage.getItem(`nota${i}`)) || 0;
             total += value;
         }
+        const totalElement = document.getElementById('total');
+        totalElement.classList.remove('grow-total');
+        void totalElement.offsetWidth;
         totalElement.textContent = formatCurrency(total);
+        totalElement.classList.add('grow-total');
     }
 
     function savePreviousValues() {
@@ -135,6 +139,16 @@ document.addEventListener('DOMContentLoaded', () => {
         savePageStateVars();
         updateTotal();
         renderAddPageButton();
+        setTimeout(() => {
+            const grid = document.querySelector('.grid');
+            const start = (currentPage - 1) * CELLS_PER_PAGE + 1;
+            const inputToFocus = Array.from(grid.querySelectorAll('input'))
+                .find(input => input.parentElement.querySelector('div').textContent.trim() === `NOTA ${start}`);
+            if (inputToFocus) {
+                inputToFocus.focus();
+                localStorage.setItem('lastFocusedNotaNumber', start);
+            }
+        }, 50);
     }
 
     function findNextCell(currentCell) {
@@ -179,6 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
         grid.innerHTML = '';
         const start = (page - 1) * CELLS_PER_PAGE + 1;
         const end = page * CELLS_PER_PAGE;
+        let lastFocusedCellInput = null;
         for (let i = 0; i < numNotesPerGroup; i++) {
             for (let j = 0; j < numGroups; j++) {
                 const notaNumber = start + i + j * numNotesPerGroup;
@@ -191,17 +206,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 const storedValue = localStorage.getItem(`nota${notaNumber}`);
                 cellInput.value = storedValue ? formatCurrency(parseFloat(storedValue)) : '';
                 cellInput.dataset.originalValue = storedValue ? storedValue : '';
-                cellInput.addEventListener('input', (e) => {
-                    const value = parseInputValue(e.target.value);
-                    if (value !== null) {
-                        e.target.dataset.originalValue = e.target.value;
-                        localStorage.setItem(`nota${notaNumber}`, value);
-                    } else {
-                        localStorage.removeItem(`nota${notaNumber}`);
-                    }
-                    renderAddPageButton();
-                });
                 cellInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        let targetNotaNumber;
+                        if (e.key === 'ArrowUp' && notaNumber > start) {
+                            targetNotaNumber = notaNumber - 1;
+                        } else if (e.key === 'ArrowDown' && notaNumber < end) {
+                            targetNotaNumber = notaNumber + 1;
+                        }
+                        if (targetNotaNumber) {
+                            const nextInput = Array.from(document.querySelectorAll('.cell input'))
+                                .find(input => input.parentElement.querySelector('div').textContent.trim() === `NOTA ${targetNotaNumber}`);
+                            if (nextInput) {
+                                nextInput.focus();
+                            }
+                        }
+                        return;
+                    }
                     if (e.key === 'Enter') {
                         e.preventDefault();
                         const value = parseInputValue(cellInput.value);
@@ -238,15 +260,41 @@ document.addEventListener('DOMContentLoaded', () => {
                         e.target.value = '';
                         localStorage.removeItem(`nota${notaNumber}`);
                     }
-                    updateTotal();
                     renderAddPageButton();
+                    setTimeout(() => {
+                        const active = document.activeElement;
+                        if (!active || !active.classList.contains('cell-input')) {
+                            if (lastFocusedCellInput) {
+                                lastFocusedCellInput.focus();
+                            }
+                        }
+                    }, 0);
                 });
                 cellInput.addEventListener('focus', (e) => {
                     e.target.setSelectionRange(0, e.target.value.length);
+                    lastFocusedCellInput = e.target;
+                    localStorage.setItem('lastFocusedNotaNumber', notaNumber);
                 });
+                cellInput.addEventListener('input', (e) => {
+                    if (e.target.value.trim() === '') {
+                        localStorage.removeItem(`nota${notaNumber}`);
+                        updateTotal();
+                        renderAddPageButton();
+                    }
+                });
+                cellInput.classList.add('cell-input');
                 cell.appendChild(cellLabel);
                 cell.appendChild(cellInput);
                 grid.appendChild(cell);
+            }
+        }
+        // Foco automático na próxima célula vazia da página atual
+        for (let notaNumber = start; notaNumber <= end; notaNumber++) {
+            const cellInput = Array.from(document.querySelectorAll('.cell input'))
+                .find(input => input.parentElement.querySelector('div').textContent.trim() === `NOTA ${notaNumber}`);
+            if (cellInput && (!cellInput.value || cellInput.value === '0,00')) {
+                setTimeout(() => cellInput.focus(), 0);
+                break;
             }
         }
         renderAddPageButton();
@@ -255,6 +303,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderPageNavigation() {
         let nav = document.getElementById('cellPageNav');
         const navContainer = document.getElementById('cellPageNavContainer');
+        // Só exibe a navegação se a página principal estiver visível
+        const mainPageVisible = document.querySelector('.container').style.display !== 'none';
+        const clientesPageVisible = clientesPage && clientesPage.style.display === 'block';
+        if (!mainPageVisible || clientesPageVisible) {
+            if (nav) nav.style.display = 'none';
+            return;
+        }
         if (!nav) {
             nav = document.createElement('div');
             nav.id = 'cellPageNav';
@@ -264,6 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
             nav.style.margin = '0';
             navContainer.appendChild(nav);
         }
+        nav.style.display = 'flex';
         nav.innerHTML = '';
         for (let p = 1; p <= 2; p++) {
             const btn = document.createElement('button');
@@ -352,6 +408,7 @@ document.addEventListener('DOMContentLoaded', () => {
         cashClosingPage.style.display = 'block';
         savePageState(true); // Salva o estado ao abrir a página de fechar caixa
         updateTotals();
+        renderPageNavigation(); // Atualiza navegação
     });
 
     // Voltar para a página principal
@@ -359,50 +416,79 @@ document.addEventListener('DOMContentLoaded', () => {
         cashClosingPage.style.display = 'none';
         document.querySelector('.container').style.display = 'block';
         savePageState(false); // Salva o estado ao voltar para a página principal
+        setTimeout(() => {
+            createCells(currentPage); // Garante que as células são recriadas
+            setTimeout(() => {
+                const grid = document.querySelector('.grid');
+                const start = (currentPage - 1) * CELLS_PER_PAGE + 1;
+                const end = currentPage * CELLS_PER_PAGE;
+                const lastNota = parseInt(localStorage.getItem('lastFocusedNotaNumber'));
+                if (!isNaN(lastNota) && lastNota >= start && lastNota <= end) {
+                    const inputToFocus = Array.from(grid.querySelectorAll('input'))
+                        .find(input => input.parentElement.querySelector('div').textContent.trim() === `NOTA ${lastNota}`);
+                    if (inputToFocus) {
+                        inputToFocus.focus();
+                    }
+                }
+                renderPageNavigation(); // Atualiza navegação
+            }, 0);
+        }, 0);
     });
 
     // Configurar inputs de moeda
-    Object.values(cashInputs).forEach((input, index) => {
+    Object.values(cashInputs).forEach((input, index, arr) => {
         input.addEventListener('input', function() {
-            // Apenas permite digitar números e vírgula
             this.value = this.value.replace(/[^\d,]/g, '');
-            // Atualiza os totais quando o valor é alterado
-            updateTotals();
+            if (this.value.trim() === '') {
+                updateTotals({onlyCashStatus: false});
+                updateTotals({onlyCashStatus: true});
+                saveValues();
+            }
         });
-
         input.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (index < arr.length - 1) {
+                    arr[index + 1].focus();
+                    arr[index + 1].select();
+                }
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (index > 0) {
+                    arr[index - 1].focus();
+                    arr[index - 1].select();
+                }
+            } else if (e.key === 'Enter') {
                 e.preventDefault();
                 const value = parseInputValue(this.value);
                 if (value !== null) {
                     this.value = formatCurrency(value);
-                    updateTotals();
-                    
-                    // Move o foco para o próximo input
-                    if (index < Object.values(cashInputs).length - 1) {
-                        Object.values(cashInputs)[index + 1].focus();
-                        Object.values(cashInputs)[index + 1].select();
-                    }
+                } else {
+                    this.value = '';
+                }
+                updateTotals({onlyCashStatus: false});
+                updateTotals({onlyCashStatus: true});
+                saveValues();
+                if (index < arr.length - 1) {
+                    arr[index + 1].focus();
+                    arr[index + 1].select();
                 }
             } else if (e.key === 'Backspace' || e.key === 'Delete') {
-                // Atualiza os totais imediatamente ao apagar
                 setTimeout(() => {
-                    updateTotals();
+                    updateTotals({onlyCashStatus: false});
+                    updateTotals({onlyCashStatus: true});
+                    saveValues();
                 }, 0);
             }
         });
-
         input.addEventListener('blur', function() {
             const value = parseInputValue(this.value);
             if (value !== null) {
                 this.value = formatCurrency(value);
-                updateTotals();
             } else {
                 this.value = '';
-                updateTotals();
             }
         });
-
         input.addEventListener('focus', function() {
             this.select();
         });
@@ -410,10 +496,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Configurar input de valores separados
     separateValueInput.addEventListener('input', function() {
-        // Apenas permite digitar números e vírgula
         this.value = this.value.replace(/[^\d,]/g, '');
-        // Atualiza os totais quando o valor é alterado
-        updateTotals();
+        if (this.value.trim() === '') {
+            updateTotals({onlyCashStatus: false});
+            saveValues();
+        }
     });
 
     separateValueInput.addEventListener('keydown', function(e) {
@@ -422,12 +509,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const value = parseInputValue(this.value);
             if (value !== null) {
                 this.value = formatCurrency(value);
-                updateTotals();
+            } else {
+                this.value = '';
             }
+            updateTotals({onlyCashStatus: false});
+            saveValues();
         } else if (e.key === 'Backspace' || e.key === 'Delete') {
-            // Atualiza os totais imediatamente ao apagar
             setTimeout(() => {
-                updateTotals();
+                updateTotals({onlyCashStatus: false});
+                saveValues();
             }, 0);
         }
     });
@@ -436,10 +526,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const value = parseInputValue(this.value);
         if (value !== null) {
             this.value = formatCurrency(value);
-            updateTotals();
         } else {
             this.value = '';
-            updateTotals();
         }
     });
 
@@ -454,66 +542,83 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Função para atualizar os totais
-    function updateTotals() {
+    function updateTotals({ onlyCashStatus } = {}) {
         const cashTotal = calculateCashTotal();
         const separateTotal = calculateSeparateTotal();
         const sheetTotal = total;
         
         // Atualiza o total em cédulas
         const totalCashInputs = document.getElementById('totalCashInputs');
-        totalCashInputs.textContent = formatCurrency(cashTotal || 0); // Garante que nunca será NaN
+        if (!onlyCashStatus) {
+            totalCashInputs.textContent = formatCurrency(cashTotal || 0); // Garante que nunca será NaN
+        }
         
         // Verificar o status do caixa
         const targetAmount = 300;
         const difference = cashTotal - targetAmount;
         const cashStatusInputs = document.getElementById('cashStatusInputs');
 
-        // Remove a animação atual
-        cashStatusInputs.style.animation = 'none';
-        cashStatusInputs.offsetHeight; // Força um reflow
-        cashStatusInputs.style.animation = null; // Reaplica a animação
-
-        // Só mostra a mensagem se houver algum valor digitado
+        // Salva o status anterior
+        const prevText = cashStatusInputs.textContent;
+        const prevClass = cashStatusInputs.className;
+        let newText = "";
+        let newClass = "";
         if (cashTotal > 0) {
             if (Math.abs(difference) < 0.01) {
-                cashStatusInputs.textContent = "Suprimento OK";
-                cashStatusInputs.className = "ok";
+                newText = "Suprimento OK";
+                newClass = "ok";
             } else if (difference > 0) {
-                cashStatusInputs.textContent = `Retire do caixa: ${formatCurrency(difference)}`;
-                cashStatusInputs.className = "excess";
+                newText = `Retire do caixa: ${formatCurrency(difference)}`;
+                newClass = "excess";
             } else {
-                cashStatusInputs.textContent = `Adicione ao caixa: ${formatCurrency(Math.abs(difference))}`;
-                cashStatusInputs.className = "lack";
+                newText = `Adicione ao caixa: ${formatCurrency(Math.abs(difference))}`;
+                newClass = "lack";
             }
-        } else {
-            cashStatusInputs.textContent = "";
-            cashStatusInputs.className = "";
         }
+        // Só atualiza/anima se mudou
+        if (prevText !== newText || prevClass !== newClass) {
+            cashStatusInputs.textContent = newText;
+            cashStatusInputs.className = newClass;
+            cashStatusInputs.style.animation = 'none';
+            cashStatusInputs.offsetHeight;
+            cashStatusInputs.style.animation = null;
+        }
+        if (!onlyCashStatus) {
+            // Calcular os totais finais
+            const supplyTotal = Math.min(cashTotal, targetAmount); // Limita o total em suprimentos a R$ 300,00
+            const excessAmount = Math.max(0, difference); // Pega apenas o valor excedente
+            const finalSeparateTotal = separateTotal + excessAmount; // Adiciona o excedente ao total em espécie
+            const finalTotal = supplyTotal + finalSeparateTotal + sheetTotal;
 
-        // Calcular os totais finais
-        const supplyTotal = Math.min(cashTotal, targetAmount); // Limita o total em suprimentos a R$ 300,00
-        const excessAmount = Math.max(0, difference); // Pega apenas o valor excedente
-        const finalSeparateTotal = separateTotal + excessAmount; // Adiciona o excedente ao total em espécie
-        const finalTotal = supplyTotal + finalSeparateTotal + sheetTotal;
+            // Atualiza os totais no resumo
+            const prevFinalTotal = finalTotalElement.textContent;
+            totalCashElement.textContent = formatCurrency(supplyTotal);
+            totalSeparateElement.textContent = formatCurrency(finalSeparateTotal);
+            totalSheetElement.textContent = formatCurrency(sheetTotal);
+            finalTotalElement.textContent = formatCurrency(finalTotal);
+            if (finalTotalElement.textContent !== prevFinalTotal) {
+                finalTotalElement.classList.remove('pulse-final-total');
+                void finalTotalElement.offsetWidth;
+                finalTotalElement.classList.add('pulse-final-total');
+            }
 
-        // Atualiza os totais no resumo
-        totalCashElement.textContent = formatCurrency(supplyTotal);
-        totalSeparateElement.textContent = formatCurrency(finalSeparateTotal);
-        totalSheetElement.textContent = formatCurrency(sheetTotal);
-        finalTotalElement.textContent = formatCurrency(finalTotal);
-
-        // Mostra ou esconde o total final baseado nas condições: pelo menos um campo de cédula > 0 E valor separado > 0
-        const finalTotalContainer = document.getElementById('finalTotalContainer');
-        const separateValue = parseInputValue(separateValueInput.value);
-        // Verifica se algum campo de cédula tem valor > 0
-        const hasCash = Object.values(cashInputs).some(input => {
-            const val = parseInputValue(input.value);
-            return val && val > 0;
-        });
-        if (hasCash && separateValue !== null) {
-            finalTotalContainer.style.display = 'flex';
-        } else {
-            finalTotalContainer.style.display = 'none';
+            // Mostra ou esconde o total final baseado nas condições: pelo menos um campo de cédula > 0 E valor separado > 0
+            const finalTotalContainer = document.getElementById('finalTotalContainer');
+            const separateValue = parseInputValue(separateValueInput.value);
+            // Verifica se algum campo de cédula tem valor > 0
+            const hasCash = Object.values(cashInputs).some(input => {
+                const val = parseInputValue(input.value);
+                return val && val > 0;
+            });
+            if (hasCash && separateValue !== null) {
+                finalTotalContainer.style.display = 'flex';
+                finalTotalContainer.classList.remove('pulse-final-total');
+                void finalTotalContainer.offsetWidth; // Força reflow para reiniciar animação
+                finalTotalContainer.classList.add('pulse-final-total');
+            } else {
+                finalTotalContainer.style.display = 'none';
+                finalTotalContainer.classList.remove('pulse-final-total');
+            }
         }
     }
 
@@ -612,7 +717,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 Object.keys(values.cashPage).forEach(id => {
                     const input = document.getElementById(id);
                     if (input && values.cashPage[id]) {
-                        input.value = values.cashPage[id];
+                        const num = parseInputValue(values.cashPage[id]);
+                        input.value = num !== null ? formatCurrency(num) : '';
                     }
                 });
             }
@@ -651,27 +757,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Adiciona evento de input para salvar os valores
     function setupInputListeners() {
-        // Listeners para inputs de caixa
-        const cashInputs = ['cash2', 'cash5', 'cash10', 'cash20', 'cashLarger', 'cashCoins', 'separateValue'];
-        cashInputs.forEach(id => {
-            const input = document.getElementById(id);
-            if (input) {
-                input.addEventListener('input', () => {
-                    saveValues();
-                    updateTotals();
-                });
-                input.addEventListener('blur', () => {
-                    saveValues();
-                    updateTotals();
-                });
-                input.addEventListener('change', () => {
-                    saveValues();
-                    updateTotals();
-                });
-            }
-        });
-
-        // Listeners para células da grade
+        // Listeners para células da grade (mantém)
         const cells = document.querySelectorAll('.cell');
         cells.forEach(cell => {
             cell.addEventListener('click', () => {
@@ -698,6 +784,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentPage === 'cash') {
             cashPage.style.display = 'block';
             mainPage.style.display = 'none';
+            if (clientesPage) clientesPage.style.display = 'none';
         } else if (currentPage === 'clientes') {
             clientesPage.style.display = 'block';
             cashPage.style.display = 'none';
@@ -706,7 +793,13 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             cashPage.style.display = 'none';
             mainPage.style.display = 'block';
+            if (clientesPage) clientesPage.style.display = 'none';
         }
+        // Remover display:none forçado se a .container for a página visível
+        if (mainPage.style.display !== 'none') {
+            mainPage.style.removeProperty('display');
+        }
+        renderPageNavigation(); // Sempre atualiza a navegação após restaurar o estado
     }
 
     // Salva os valores quando alternar entre as páginas
@@ -879,13 +972,64 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelector('.container').style.display = 'block';
         localStorage.setItem('currentPage', 'main');
     }
-    if (clientesBtn) clientesBtn.addEventListener('click', showClientesPage);
-    if (backToMainFromClientes) backToMainFromClientes.addEventListener('click', hideClientesPage);
+    if (clientesBtn) clientesBtn.addEventListener('click', () => {
+        showClientesPage();
+        renderPageNavigation();
+    });
+    if (backToMainFromClientes) backToMainFromClientes.addEventListener('click', () => {
+        hideClientesPage();
+        setTimeout(() => {
+            createCells(currentPage);
+            setTimeout(() => {
+                const grid = document.querySelector('.grid');
+                const start = (currentPage - 1) * CELLS_PER_PAGE + 1;
+                const end = currentPage * CELLS_PER_PAGE;
+                const lastNota = parseInt(localStorage.getItem('lastFocusedNotaNumber'));
+                if (!isNaN(lastNota) && lastNota >= start && lastNota <= end) {
+                    const inputToFocus = Array.from(grid.querySelectorAll('input'))
+                        .find(input => input.parentElement.querySelector('div').textContent.trim() === `NOTA ${lastNota}`);
+                    if (inputToFocus) {
+                        inputToFocus.focus();
+                    }
+                }
+                renderPageNavigation();
+            }, 0);
+        }, 0);
+    });
 
     // Firestore: CRUD de clientes
     async function getClientes() {
-        const snapshot = await db.collection('clientes').orderBy('nome').get();
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        if (!navigator.onLine) {
+            // Se está offline, usa direto o backup
+            let backup = localStorage.getItem('clientesBackup');
+            if (backup) {
+                try {
+                    const parsed = JSON.parse(backup);
+                    if (Array.isArray(parsed)) return parsed;
+                } catch (err) {
+                    console.error('Erro ao ler clientesBackup do localStorage:', err);
+                }
+            }
+            return [];
+        }
+        try {
+            const snapshot = await db.collection('clientes').orderBy('nome').get();
+            const clientes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            localStorage.setItem('clientesBackup', JSON.stringify(clientes));
+            return clientes;
+        } catch (e) {
+            // Se der erro mesmo online, tenta o backup
+            let backup = localStorage.getItem('clientesBackup');
+            if (backup) {
+                try {
+                    const parsed = JSON.parse(backup);
+                    if (Array.isArray(parsed)) return parsed;
+                } catch (err) {
+                    console.error('Erro ao ler clientesBackup do localStorage:', err);
+                }
+            }
+            return [];
+        }
     }
     async function addCliente(nome, cnpj) {
         await db.collection('clientes').add({ nome, cnpj });
@@ -895,10 +1039,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     async function renderClientesLista() {
         clientesLista.innerHTML = '<li style="color:#888;text-align:center;">Carregando...</li>';
-        const clientes = await getClientes();
+        let clientes = await getClientes();
         clientesLista.innerHTML = '';
         if (clientes.length === 0) {
-            clientesLista.innerHTML = '<li style="color:#888;text-align:center;">Nenhum cliente cadastrado.</li>';
+            clientesLista.innerHTML += '<li style="color:#888;text-align:center;">Nenhum cliente cadastrado.</li>';
             return;
         }
         clientes.forEach((cliente) => {
