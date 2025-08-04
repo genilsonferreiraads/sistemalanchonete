@@ -4,16 +4,15 @@
 body {
     font-family: 'Montserrat', Arial, sans-serif;
     /* Aplica Montserrat ao corpo da página */
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    height: 100vh;
     margin: 0;
     background: linear-gradient(135deg, #5fa8d3 0%, #5fa8d3 100%);
-    overflow: hidden;
+    min-height: 100vh;
     transform: scale(0.9);
     transform-origin: top center;
     padding-top: 0;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
 }
 
 /* Esconde a planilha até o JS decidir qual página mostrar */
@@ -24,7 +23,7 @@ body {
     border-radius: 10px;
     text-align: center;
     max-width: 850px;
-    overflow: auto;
+    width: 100%;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
 }
 
@@ -734,21 +733,23 @@ body {
 /* Estilos da Página de Fechamento de Caixa */
 .cash-closing-page {
     display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
+    position: relative;
     width: 100%;
-    height: 100%;
+    min-height: 100vh;
     background: linear-gradient(135deg, #5fa8d3 0%, #5fa8d3 100%);
     z-index: 1000;
-    overflow: hidden;
-    padding: 40px 15px 15px;
+    padding: 40px 15px 60px 15px;
+}
+
+.cash-closing-page.show {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 .cash-closing-header {
-    position: absolute;
-    top: 15px;
-    left: 15px;
+    position: relative;
+    margin-bottom: 20px;
     z-index: 1;
 }
 
@@ -1037,15 +1038,18 @@ body {
 /* --- CLIENTES PAGE --- */
 .clientes-page {
     display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
+    position: relative;
+    width: 100%;
+    min-height: 100vh;
     background: linear-gradient(135deg, #5fa8d3 0%, #5fa8d3 100%);
     z-index: 1100;
-    overflow-y: auto;
-    padding: 40px 0 0 0;
+    padding: 40px 0 60px 0;
+}
+
+.clientes-page.show {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 .clientes-header {
     max-width: 700px;
@@ -1281,49 +1285,74 @@ body {
     top: 0;
     width: 100vw;
     height: 100vh;
-    background-color: rgba(0,0,0,0.18);
-    backdrop-filter: blur(2px);
+    background-color: rgba(0,0,0,0.25);
+    backdrop-filter: blur(4px);
     align-items: center;
     justify-content: center;
-    animation: fadeInBg 0.3s;
+    animation: fadeInBg 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 0;
+    transition: opacity 0.3s ease;
 }
+
+#modalAddCliente.modal.show {
+    opacity: 1;
+}
+
 #modalAddCliente .modal-content {
     background-color: #fff;
-    border-radius: 16px;
-    padding: 32px 20px 28px 20px;
+    border-radius: 20px;
+    padding: 40px 32px 36px 32px;
     width: 100%;
-    max-width: 800px;
+    max-width: 480px;
     margin: auto;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.18), 0 1.5px 6px rgba(9,151,75,0.08);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25), 0 8px 24px rgba(9,151,75,0.12);
     position: relative;
-    animation: modalPopIn 0.35s cubic-bezier(.68,-0.55,.27,1.55);
-    border: 1.5px solid #f0f0f0;
+    animation: modalPopIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    border: 1px solid rgba(9,151,75,0.1);
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
+    transform: scale(0.9) translateY(20px);
+    opacity: 0;
+}
+
+#modalAddCliente.modal.show .modal-content {
+    transform: scale(1) translateY(0);
+    opacity: 1;
 }
 #modalAddCliente .close {
     position: absolute;
-    right: 14px;
-    top: 10px;
-    color: #bbb;
-    font-size: 26px;
-    font-weight: bold;
+    right: 20px;
+    top: 20px;
+    color: #999;
+    font-size: 28px;
+    font-weight: 300;
     cursor: pointer;
-    transition: color 0.3s, transform 0.2s;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 2;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.05);
 }
+
 #modalAddCliente .close:hover {
     color: #09974b;
-    transform: scale(1.15) rotate(8deg);
+    transform: scale(1.1) rotate(90deg);
+    background: rgba(9,151,75,0.1);
 }
+
 #modalAddCliente .modal-title {
-    font-size: 1.35em;
+    font-size: 1.5em;
     font-weight: 700;
     color: #09974b;
-    margin: 0 0 8px 0;
-    letter-spacing: 0.5px;
+    margin: 0 0 24px 0;
+    letter-spacing: 0.3px;
+    line-height: 1.3;
 }
 #modalAddCliente form {
     display: flex;
@@ -1334,30 +1363,60 @@ body {
     width: 100% !important;
     min-width: 0 !important;
     max-width: 100% !important;
-    font-size: 1.25em;
-    padding: 16px 18px;
+    font-size: 1.1em;
+    padding: 18px 20px;
     box-sizing: border-box;
-    border-radius: 8px;
-    margin-bottom: 10px;
+    border-radius: 12px;
+    margin-bottom: 16px;
     display: block;
+    border: 2px solid #e5e7eb;
+    background: #fafafa;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    font-weight: 500;
 }
+
 #modalAddCliente input:focus, #modalEditCliente input:focus {
     border-color: #09974b;
     outline: none;
+    background: #fff;
+    box-shadow: 0 0 0 4px rgba(9,151,75,0.1);
+    transform: translateY(-1px);
 }
+
+#modalAddCliente input::placeholder, #modalEditCliente input::placeholder {
+    color: #9ca3af;
+    font-weight: 400;
+}
+
 #modalAddCliente button[type="submit"], #modalEditCliente button[type="submit"] {
-    background: #09974b;
+    background: linear-gradient(135deg, #09974b 0%, #0ab55d 100%);
     color: #fff;
     font-weight: 600;
-    padding: 10px 0;
+    padding: 16px 24px;
     border: none;
-    border-radius: 6px;
-    font-size: 1.08em;
-    transition: background 0.2s;
+    border-radius: 12px;
+    font-size: 1.1em;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     cursor: pointer;
+    box-shadow: 0 4px 12px rgba(9,151,75,0.2);
+    position: relative;
+    overflow: hidden;
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
 }
+
 #modalAddCliente button[type="submit"]:hover, #modalEditCliente button[type="submit"]:hover {
-    background: #0ab55d;
+    background: linear-gradient(135deg, #0ab55d 0%, #0ccd6a 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(9,151,75,0.3);
+}
+
+#modalAddCliente button[type="submit"]:active, #modalEditCliente button[type="submit"]:active {
+    transform: translateY(0);
+    box-shadow: 0 4px 12px rgba(9,151,75,0.2);
 }
 #editClienteForm button[type="submit"] {
     background: #2563eb;
@@ -1376,6 +1435,64 @@ body {
 #editClienteForm button[type="submit"].clicked {
     animation: btnClickPulse 0.18s cubic-bezier(.68,-0.55,.27,1.55);
 }
+
+/* Loading state para o botão */
+#modalAddCliente button[type="submit"].loading {
+    background: linear-gradient(135deg, #6b7280 0%, #9ca3af 100%);
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+#modalAddCliente button[type="submit"].loading::after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border: 2px solid transparent;
+    border-top: 2px solid #fff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-left: 8px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+    20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+.shake {
+    animation: shake 0.6s cubic-bezier(.36,.07,.19,.97) both;
+}
+#modalAddCliente.modal.fade-out {
+    animation: modalFadeOut 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+#modalAddCliente.modal.fade-out .modal-content {
+    animation: modalContentFadeOut 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes modalFadeOut {
+    0% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+@keyframes modalContentFadeOut {
+    0% { 
+        opacity: 1; 
+        transform: scale(1) translateY(0); 
+    }
+    100% { 
+        opacity: 0; 
+        transform: scale(0.9) translateY(30px); 
+    }
+}
+
 #modalEditCliente.modal.fade-out {
     animation: modalFadeOut 0.32s cubic-bezier(.68,-0.55,.27,1.55) forwards;
 }
@@ -1524,5 +1641,53 @@ body {
     #confirmRemoveClienteModal .modal-content {
         max-width: 98vw;
         padding: 18px 4vw 18px 4vw;
+    }
+    
+    #modalAddCliente .modal-content {
+        margin: 20px;
+        padding: 32px 24px 28px 24px;
+        max-width: calc(100vw - 40px);
+    }
+    
+    #modalAddCliente .modal-title {
+        font-size: 1.3em;
+        margin: 0 0 20px 0;
+    }
+    
+    #modalAddCliente input, #modalEditCliente input {
+        font-size: 1em;
+        padding: 16px 18px;
+        margin-bottom: 14px;
+    }
+    
+    #modalAddCliente button[type="submit"], #modalEditCliente button[type="submit"] {
+        padding: 14px 20px;
+        font-size: 1em;
+        min-height: 48px;
+    }
+    
+    #modalAddCliente .close {
+        right: 16px;
+        top: 16px;
+        width: 36px;
+        height: 36px;
+        font-size: 24px;
+    }
+    
+    .clientes-page {
+        padding: 20px 0 40px 0;
+    }
+    
+    .clientes-lista {
+        margin: 0 10px;
+        padding: 20px 24px;
+    }
+    
+    .clientes-header {
+        padding: 0 10px;
+    }
+    
+    .cash-closing-page {
+        padding: 20px 10px 40px 10px;
     }
 }

@@ -42,6 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const CASH_PAGE_TIMER_KEY = 'cashPageStartTime';
     const CASH_PAGE_TIMEOUT = 10 * 60 * 1000; // 10 minutos em ms
     let cashPageTimeoutInterval = null; // Timer global para o timeout da página de fechar caixa
+    let timeoutWarningShown = false; // Controle para aviso de timeout
 
     // --- FIREBASE CONFIG ---
     const firebaseConfig = {
@@ -406,6 +407,7 @@ document.addEventListener('DOMContentLoaded', () => {
     closeCashButton.addEventListener('click', () => {
         document.querySelector('.container').style.display = 'none';
         cashClosingPage.style.display = 'block';
+        cashClosingPage.classList.add('show');
         savePageState(true); // Salva o estado ao abrir a página de fechar caixa
         updateTotals();
         renderPageNavigation(); // Atualiza navegação
@@ -414,6 +416,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Voltar para a página principal
     backToMainButton.addEventListener('click', () => {
         cashClosingPage.style.display = 'none';
+        cashClosingPage.classList.remove('show');
         document.querySelector('.container').style.display = 'block';
         savePageState(false); // Salva o estado ao voltar para a página principal
         setTimeout(() => {
@@ -783,17 +786,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (currentPage === 'cash') {
             cashPage.style.display = 'block';
+            cashPage.classList.add('show');
             mainPage.style.display = 'none';
-            if (clientesPage) clientesPage.style.display = 'none';
+            if (clientesPage) {
+                clientesPage.style.display = 'none';
+                clientesPage.classList.remove('show');
+            }
         } else if (currentPage === 'clientes') {
             clientesPage.style.display = 'block';
+            clientesPage.classList.add('show');
             cashPage.style.display = 'none';
+            cashPage.classList.remove('show');
             mainPage.style.display = 'none';
             renderClientesLista();
         } else {
             cashPage.style.display = 'none';
+            cashPage.classList.remove('show');
             mainPage.style.display = 'block';
-            if (clientesPage) clientesPage.style.display = 'none';
+            if (clientesPage) {
+                clientesPage.style.display = 'none';
+                clientesPage.classList.remove('show');
+            }
         }
         // Remover display:none forçado se a .container for a página visível
         if (mainPage.style.display !== 'none') {
@@ -894,16 +907,44 @@ document.addEventListener('DOMContentLoaded', () => {
         // Limpa também o localStorage dos campos da página de fechar caixa
         cashPageInputIds.forEach(id => localStorage.removeItem(id));
         localStorage.removeItem(CASH_PAGE_TIMER_KEY);
+        timeoutWarningShown = false;
         updateTotals && updateTotals();
     }
 
     function checkCashPageTimeout() {
         const startTime = localStorage.getItem(CASH_PAGE_TIMER_KEY);
-        if (startTime) {
-            const now = Date.now();
-            if (now - parseInt(startTime, 10) >= CASH_PAGE_TIMEOUT) {
-                clearCashPageFields();
-            }
+        if (!startTime) return;
+        
+        const now = Date.now();
+        const elapsed = now - parseInt(startTime, 10);
+        
+        if (elapsed >= CASH_PAGE_TIMEOUT) {
+            clearCashPageFields();
+            console.log('Campos da página de fechar caixa limpos após 10 minutos de inatividade');
+        }
+    }
+
+    // Função para verificar se há dados nos campos
+    function hasCashPageData() {
+        return cashPageInputIds.some(id => {
+            const input = document.getElementById(id);
+            return input && input.value.trim() !== '';
+        });
+    }
+
+    // Função para iniciar o timer quando há primeira interação
+    function startCashPageTimer() {
+        if (!localStorage.getItem(CASH_PAGE_TIMER_KEY) && hasCashPageData()) {
+            localStorage.setItem(CASH_PAGE_TIMER_KEY, Date.now().toString());
+            timeoutWarningShown = false;
+        }
+    }
+
+    // Função para parar o timer quando não há dados
+    function stopCashPageTimer() {
+        if (!hasCashPageData()) {
+            localStorage.removeItem(CASH_PAGE_TIMER_KEY);
+            timeoutWarningShown = false;
         }
     }
 
@@ -912,10 +953,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const input = document.getElementById(id);
         if (input) {
             input.addEventListener('input', function() {
-                // Se não existe timer, inicia
-                if (!localStorage.getItem(CASH_PAGE_TIMER_KEY) && this.value.trim() !== '') {
-                    localStorage.setItem(CASH_PAGE_TIMER_KEY, Date.now().toString());
-                }
+                // Inicia timer se há dados e não existe timer
+                startCashPageTimer();
+                // Para timer se não há dados
+                stopCashPageTimer();
                 checkCashPageTimeout();
             });
         }
@@ -926,7 +967,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (cashPageTimeoutInterval) clearInterval(cashPageTimeoutInterval);
         cashPageTimeoutInterval = setInterval(() => {
             checkCashPageTimeout();
-        }, 1000); // Checa a cada segundo
+        }, 5000); // Checa a cada 5 segundos (mais eficiente)
     }
 
     // Função para parar o timer
@@ -941,8 +982,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (cashClosingPage) {
         const observer = new MutationObserver(() => {
             if (cashClosingPage.style.display === 'block') {
-                // Reinicia o timer sempre que abrir a página de fechar caixa
-                localStorage.setItem(CASH_PAGE_TIMER_KEY, Date.now().toString());
+                // Verifica se há dados existentes e inicia timer se necessário
+                if (hasCashPageData() && !localStorage.getItem(CASH_PAGE_TIMER_KEY)) {
+                    startCashPageTimer();
+                }
                 checkCashPageTimeout();
                 startCashPageTimeoutInterval();
             } else {
@@ -960,15 +1003,27 @@ document.addEventListener('DOMContentLoaded', () => {
         stopCashPageTimeoutInterval();
     });
 
+    // Verificar dados existentes ao carregar a página
+    function checkExistingCashPageData() {
+        if (hasCashPageData() && !localStorage.getItem(CASH_PAGE_TIMER_KEY)) {
+            startCashPageTimer();
+        }
+    }
+
+    // Executar verificação inicial
+    setTimeout(checkExistingCashPageData, 1000);
+
     function showClientesPage() {
         document.querySelector('.container').style.display = 'none';
         document.getElementById('cashClosingPage').style.display = 'none';
         clientesPage.style.display = 'block';
+        clientesPage.classList.add('show');
         localStorage.setItem('currentPage', 'clientes');
         renderClientesLista();
     }
     function hideClientesPage() {
         clientesPage.style.display = 'none';
+        clientesPage.classList.remove('show');
         document.querySelector('.container').style.display = 'block';
         localStorage.setItem('currentPage', 'main');
     }
@@ -1085,7 +1140,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 setTimeout(() => { this.innerHTML = original; }, 1000);
             });
         });
-        // Copiar CNPJ ao clicar
+        // Copiar CPF/CNPJ ao clicar
         clientesLista.querySelectorAll('.cliente-cnpj').forEach(span => {
             span.addEventListener('click', function() {
                 const cnpj = this.querySelector('.cnpj-text').textContent;
@@ -1101,29 +1156,139 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             let nome = clienteNomeInput.value.trim();
             const cnpj = clienteCNPJInput.value.trim();
-            if (!nome || !cnpj) return;
-            nome = nome.toUpperCase();
-            // Animação de clique no botão
-            const submitBtn = addClienteForm.querySelector('button[type="submit"]');
-            if (submitBtn) {
-                submitBtn.classList.add('clicked');
-                setTimeout(() => submitBtn.classList.remove('clicked'), 180);
+            
+            // Validação com feedback visual
+            let isValid = true;
+            
+            if (!nome || nome.length < 3) {
+                clienteNomeInput.classList.add('shake');
+                clienteNomeInput.style.borderColor = '#ef4444';
+                clienteNomeInput.style.background = '#fef2f2';
+                isValid = false;
+                setTimeout(() => clienteNomeInput.classList.remove('shake'), 600);
             }
-            await addCliente(nome, cnpj);
-            clienteNomeInput.value = '';
-            clienteCNPJInput.value = '';
-            renderClientesLista();
-            closeModalAddClienteFn();
+            
+            const cleanCnpj = cnpj.replace(/\D/g, '');
+            if (!cnpj || cleanCnpj.length < 11) {
+                clienteCNPJInput.classList.add('shake');
+                clienteCNPJInput.style.borderColor = '#ef4444';
+                clienteCNPJInput.style.background = '#fef2f2';
+                isValid = false;
+                setTimeout(() => clienteCNPJInput.classList.remove('shake'), 600);
+            }
+            
+            if (!isValid) return;
+            
+            nome = nome.toUpperCase();
+            
+            // Adiciona loading state
+            const submitBtn = addClienteForm.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            
+            if (submitBtn) {
+                submitBtn.classList.add('loading');
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adicionando...';
+                submitBtn.disabled = true;
+            }
+            
+            try {
+                await addCliente(nome, cnpj);
+                
+                // Feedback de sucesso
+                if (submitBtn) {
+                    submitBtn.innerHTML = '<i class="fas fa-check"></i> Adicionado!';
+                    submitBtn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                }
+                
+                // Limpa campos
+                clienteNomeInput.value = '';
+                clienteCNPJInput.value = '';
+                
+                // Atualiza lista e fecha modal após delay
+                setTimeout(() => {
+                    renderClientesLista();
+                    closeModalAddClienteFn();
+                    
+                    // Restaura botão
+                    if (submitBtn) {
+                        submitBtn.classList.remove('loading');
+                        submitBtn.innerHTML = originalText;
+                        submitBtn.disabled = false;
+                        submitBtn.style.background = '';
+                    }
+                }, 800);
+                
+            } catch (error) {
+                console.error('Erro ao adicionar cliente:', error);
+                
+                // Feedback de erro
+                if (submitBtn) {
+                    submitBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Erro!';
+                    submitBtn.style.background = 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';
+                }
+                
+                // Restaura botão após delay
+                setTimeout(() => {
+                    if (submitBtn) {
+                        submitBtn.classList.remove('loading');
+                        submitBtn.innerHTML = originalText;
+                        submitBtn.disabled = false;
+                        submitBtn.style.background = '';
+                    }
+                }, 2000);
+            }
         });
-        // Formatar CNPJ ao digitar
+        // Formatar CPF/CNPJ ao digitar
         clienteCNPJInput.addEventListener('input', function(e) {
             let v = this.value.replace(/\D/g, '');
-            if (v.length > 14) v = v.slice(0, 14);
-            v = v.replace(/(\d{2})(\d)/, '$1.$2');
-            v = v.replace(/(\d{3})(\d)/, '$1.$2');
-            v = v.replace(/(\d{3})(\d)/, '$1/$2');
-            v = v.replace(/(\d{4})(\d{1,2})$/, '$1-$2');
+            
+            // Limita o tamanho baseado no tipo de documento
+            if (v.length <= 11) {
+                // CPF: máximo 11 dígitos
+                if (v.length > 11) v = v.slice(0, 11);
+                // Formatação CPF: XXX.XXX.XXX-XX
+                v = v.replace(/(\d{3})(\d)/, '$1.$2');
+                v = v.replace(/(\d{3})(\d)/, '$1.$2');
+                v = v.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+            } else {
+                // CNPJ: máximo 14 dígitos
+                if (v.length > 14) v = v.slice(0, 14);
+                // Formatação CNPJ: XX.XXX.XXX/XXXX-XX
+                v = v.replace(/(\d{2})(\d)/, '$1.$2');
+                v = v.replace(/(\d{3})(\d)/, '$1.$2');
+                v = v.replace(/(\d{3})(\d)/, '$1/$2');
+                v = v.replace(/(\d{4})(\d{1,2})$/, '$1-$2');
+            }
+            
             this.value = v;
+            
+            // Validação visual
+            const cleanValue = v.replace(/\D/g, '');
+            if (cleanValue.length >= 11) {
+                this.style.borderColor = '#10b981';
+                this.style.background = '#f0fdf4';
+            } else if (cleanValue.length > 0) {
+                this.style.borderColor = '#f59e0b';
+                this.style.background = '#fffbeb';
+            } else {
+                this.style.borderColor = '#e5e7eb';
+                this.style.background = '#fafafa';
+            }
+        });
+        
+        // Validação para o campo nome
+        clienteNomeInput.addEventListener('input', function(e) {
+            const value = this.value.trim();
+            if (value.length >= 3) {
+                this.style.borderColor = '#10b981';
+                this.style.background = '#f0fdf4';
+            } else if (value.length > 0) {
+                this.style.borderColor = '#f59e0b';
+                this.style.background = '#fffbeb';
+            } else {
+                this.style.borderColor = '#e5e7eb';
+                this.style.background = '#fafafa';
+            }
         });
     }
 
@@ -1134,6 +1299,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function openModalAddCliente() {
         modalAddCliente.style.display = 'flex';
+        // Adiciona classe para animação de entrada
+        setTimeout(() => {
+            modalAddCliente.classList.add('show');
+        }, 10);
         document.body.style.overflow = 'hidden';
         setTimeout(() => {
             const nomeInput = document.getElementById('clienteNome');
@@ -1141,6 +1310,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 100);
     }
     function closeModalAddClienteFn() {
+        // Remove classe de entrada
+        modalAddCliente.classList.remove('show');
         // Animação de saída suave
         modalAddCliente.classList.add('fade-out');
         setTimeout(() => {
@@ -1152,7 +1323,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const cnpjInput = document.getElementById('clienteCNPJ');
             if (nomeInput) nomeInput.value = '';
             if (cnpjInput) cnpjInput.value = '';
-        }, 320);
+        }, 400);
     }
     if (abrirModalClienteBtn) abrirModalClienteBtn.addEventListener('click', openModalAddCliente);
     if (closeModalAddCliente) closeModalAddCliente.addEventListener('click', closeModalAddClienteFn);
@@ -1218,6 +1389,31 @@ document.addEventListener('DOMContentLoaded', () => {
             await db.collection('clientes').doc(clienteEditandoId).update({ nome, cnpj });
             closeModalEditClienteFn();
             renderClientesLista();
+        });
+        
+        // Formatar CPF/CNPJ ao digitar no modal de editar
+        editClienteCNPJ.addEventListener('input', function(e) {
+            let v = this.value.replace(/\D/g, '');
+            
+            // Limita o tamanho baseado no tipo de documento
+            if (v.length <= 11) {
+                // CPF: máximo 11 dígitos
+                if (v.length > 11) v = v.slice(0, 11);
+                // Formatação CPF: XXX.XXX.XXX-XX
+                v = v.replace(/(\d{3})(\d)/, '$1.$2');
+                v = v.replace(/(\d{3})(\d)/, '$1.$2');
+                v = v.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+            } else {
+                // CNPJ: máximo 14 dígitos
+                if (v.length > 14) v = v.slice(0, 14);
+                // Formatação CNPJ: XX.XXX.XXX/XXXX-XX
+                v = v.replace(/(\d{2})(\d)/, '$1.$2');
+                v = v.replace(/(\d{3})(\d)/, '$1.$2');
+                v = v.replace(/(\d{3})(\d)/, '$1/$2');
+                v = v.replace(/(\d{4})(\d{1,2})$/, '$1-$2');
+            }
+            
+            this.value = v;
         });
     }
 
