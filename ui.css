@@ -79,9 +79,16 @@
     .button-group button:hover { background: #f3f6f3 !important; border-color: #cbd7cd !important; }
     .button-group #closeCash { background: var(--green) !important; border-color: var(--green) !important; color: #fff !important; }
     .button-group #closeCash:hover { background: #076b3e !important; }
-    .button-group #clearAll { color: #94615d !important; border-color: transparent !important; }
-    .button-group #clearAll:hover { background: #fcf0ee !important; }
+    .button-group #clearAll { color: #a34e46 !important; background: #fcf0ed !important; border-color: #efd5cf !important; font-weight: 600 !important; }
+    .button-group #clearAll:hover { background: #f8e3dd !important; border-color: #dfb4aa !important; }
     .header > .button-group { margin-left: auto; }
+    @media (min-width: 761px) {
+        .container .header { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) 36px; align-items: center; }
+        .container .header > .button-group { display: contents; }
+        .container .header #clearAll { grid-column: 2; padding-inline: 18px !important; }
+        .container .header #closeCash { grid-column: 3; justify-self: end; }
+        .container .header > .app-side-menu { grid-column: 4; }
+    }
     .app-side-menu { position: relative; }
     .app-side-menu > summary { display: grid; place-items: center; width: 36px; height: 36px; list-style: none; border-radius: 7px; color: #7f8d84; cursor: pointer; font-size: 13px; }
     .app-side-menu > summary::-webkit-details-marker { display: none; }
