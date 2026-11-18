@@ -897,7 +897,7 @@ body {
 #cardPixReceipt p { margin: 0.5mm 0; }
 #cardPixReceipt .receipt-total { margin: 1.5mm 0; padding: 1.5mm 0; border-block: 1px dashed #000; break-inside: avoid; }
 #cardPixReceipt h2 { margin: 0 0 1mm; font: bold 10pt/1.2 Arial, sans-serif; color: #000; }
-#cardPixReceipt strong { display: block; font: 900 var(--receipt-amount-size, 28pt)/1.15 Arial, sans-serif; letter-spacing: -0.5pt; white-space: nowrap; }
+#cardPixReceipt strong { display: block; font: 900 var(--receipt-amount-size, 24pt)/1.15 Arial, sans-serif; letter-spacing: -0.5pt; white-space: nowrap; }
 #cardPixReceipt .receipt-footer { font-size: 8pt; }
 #cardPixReceipt #receiptSummary { margin-top: 1.5mm; font-size: 9pt; }
 #cardPixReceipt [hidden] { display: none !important; }

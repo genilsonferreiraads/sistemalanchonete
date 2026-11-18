@@ -8,7 +8,7 @@
 .note-paper-field h3 { margin: 0 0 1mm; font: bold 9pt/1.4 Arial, sans-serif; color: #000; }
 .note-paper-custom-label { margin: 0 0 1mm; font: 10pt/1.4 Arial, sans-serif; color: #000; }
 .note-paper-text { margin: 0; white-space: pre-wrap; }
-.note-paper-value { margin: 0; font: 900 28pt/1.2 Arial, sans-serif; letter-spacing: -0.5pt; white-space: nowrap; }
+.note-paper-value { margin: 0; font: 900 24pt/1.2 Arial, sans-serif; letter-spacing: -0.5pt; white-space: nowrap; }
 
 @media screen {
     .custom-notes-page { box-sizing: border-box; width: 100%; max-width: 1000px; }

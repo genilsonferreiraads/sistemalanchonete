@@ -1,4 +1,4 @@
-const CACHE_NAME = 'planilha-cartao-v7';
+const CACHE_NAME = 'planilha-cartao-v8';
 const FILES_TO_CACHE = [
   './',
   './index.html',

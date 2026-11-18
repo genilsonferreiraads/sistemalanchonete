@@ -647,7 +647,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('receiptCardPix').textContent = includeSummary ? totalSheetElement.textContent.replace(/^R\$\s*/, '') : '';
         document.getElementById('receiptDate').textContent = new Date().toLocaleString('pt-BR');
         const paperWidth = document.getElementById('receiptPaperWidth').value === '58' ? 58 : 80;
-        const baseSize = paperWidth === 58 ? 22 : 28;
+        const baseSize = paperWidth === 58 ? 20 : 24;
         const amountSize = Math.min(baseSize, baseSize * 11 / Math.max(amount.length, 11));
         const receipt = document.getElementById('cardPixReceipt');
         receipt.style.setProperty('--receipt-width', `${paperWidth}mm`);

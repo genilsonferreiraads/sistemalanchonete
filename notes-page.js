@@ -126,7 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (entry.customLabel) section.append(element('p', 'note-paper-custom-label', entry.customLabel));
             const content = element('p', entry.isAmount ? 'note-paper-value' : 'note-paper-text', entry.value);
             if (entry.isAmount) {
-                const base = width === '58' ? 22 : 28;
+                const base = width === '58' ? 20 : 24;
                 content.style.fontSize = Math.min(base, base * 11 / Math.max(entry.value.length, 11)) + 'pt';
             }
             section.append(content);

@@ -74,7 +74,7 @@ for (const width of ['58', '80']) {
             assert.ok(state.elements.receiptDate.textContent);
             const height = Number(width) + 1;
             assert.match(state.printStyle.textContent, new RegExp(`size: ${width}mm ${height}mm`));
-            assert.match(state.printStyle.textContent, new RegExp(`font-size: ${width === '58' ? 22 : 28}pt`));
+            assert.match(state.printStyle.textContent, new RegExp(`font-size: ${width === '58' ? 20 : 24}pt`));
             assert.equal(state.calls(), 1);
             state.handlers.afterprint();
             assert.equal(state.classes.size, 0);
@@ -92,7 +92,7 @@ test('altura acompanha o conteúdo e é recalculada ao alternar fechamento e car
     assert.match(state.printStyle.textContent, /size: 80mm 81mm/);
     assert.equal(state.measuringClasses.size, 0);
     assert.equal(state.receiptProperties.get('--receipt-width'), '80mm');
-    assert.equal(state.receiptProperties.get('--receipt-amount-size'), '28pt');
+    assert.equal(state.receiptProperties.get('--receipt-amount-size'), '24pt');
 });
 
 test('conteúdo mais alto aumenta o papel, sem truncar em uma altura fixa', () => {
