@@ -112,7 +112,7 @@ function setupClientForm(form, nameInput, documentInput) {
 }
 
 // Uma janela externa pode interromper a edição sem concluir a nota.
-function createNoteFocusGuard(grid, pageDocument = document, pageWindow = window) {
+function createNoteFocusGuard(grid, pageDocument = document, pageWindow = window, getReturnInput = null) {
     let interrupted = null;
     function remember(input) {
         if (!input || !grid.contains(input) || !input.classList.contains('cell-input')) return;
@@ -137,8 +137,18 @@ function createNoteFocusGuard(grid, pageDocument = document, pageWindow = window
     pageWindow.addEventListener('blur', () => remember(pageDocument.activeElement));
     pageDocument.addEventListener('visibilitychange', () => {
         if (pageDocument.hidden) remember(pageDocument.activeElement);
+        else if (getReturnInput) returnToSequence();
     });
+    function returnToSequence() {
+        if (pageDocument.hidden || !pageDocument.hasFocus()) return;
+        const input = getReturnInput();
+        if (!input) { interrupted = null; return; }
+        if (interrupted?.input !== input) interrupted = null;
+        if (pageDocument.activeElement !== input) input.focus({ preventScroll: true });
+        restore(input);
+    }
     pageWindow.addEventListener('focus', () => {
+        if (getReturnInput) { returnToSequence(); return; }
         if (!interrupted) return;
         const input = interrupted.input;
         if (!input.isConnected || !input.getClientRects().length) {
@@ -193,7 +203,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const totalElement = document.getElementById('total');
     const grid = document.querySelector('.grid');
     const customNotesPage = document.getElementById('customNotesPage');
-    const noteFocusGuard = createNoteFocusGuard(grid);
+    const noteFocusGuard = createNoteFocusGuard(grid, document, window, () => {
+        if (!grid.getClientRects().length || document.body.classList.contains('printing-card-pix')) return null;
+        if ([...document.querySelectorAll('.modal')].some(modal => modal.getClientRects().length)) return null;
+        return findNextEmptyNote(grid);
+    });
     let focusedNoteInput = null;
     function focusNextEmptyNote() {
         if (!grid.getClientRects().length) return;

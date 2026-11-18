@@ -8,7 +8,7 @@ const source = fs.readFileSync(path.join(__dirname, '..', 'script.js'), 'utf8');
 const context = vm.createContext({});
 vm.runInContext(source.slice(source.indexOf('function createNoteFocusGuard('), source.indexOf('// Declarar elementos principais')), context);
 
-function setup() {
+function setup(getReturnInput = null) {
     const windowEvents = {};
     const documentEvents = {};
     const document = {
@@ -31,10 +31,48 @@ function setup() {
     document.activeElement = input;
     const guard = context.createNoteFocusGuard(
         { contains: element => element === input }, document,
-        { addEventListener(event, handler) { windowEvents[event] = handler; } }
+        { addEventListener(event, handler) { windowEvents[event] = handler; } },
+        getReturnInput ? () => getReturnInput({ input, document }) : null
     );
     return { input, document, guard, windowEvents, documentEvents };
 }
+
+test('retorno ao navegador troca o campo escolhido adiante pelo próximo da sequência', () => {
+    const state = setup(({ document }) => document.nextInput);
+    const next = { ...state.input, value: '', focusCount: 0 };
+    state.document.nextInput = next;
+    state.windowEvents.blur();
+    state.windowEvents.focus();
+    assert.equal(state.document.activeElement, next);
+    assert.equal(next.focusCount, 1);
+    assert.equal(state.input.value, '123,');
+});
+
+test('voltar à aba recoloca foco na sequência mesmo se o foco anterior era um botão', () => {
+    const state = setup(({ input }) => input);
+    state.document.activeElement = {};
+    state.document.hidden = true;
+    state.documentEvents.visibilitychange();
+    state.document.hidden = false;
+    state.documentEvents.visibilitychange();
+    state.windowEvents.focus();
+    assert.equal(state.document.activeElement, state.input);
+    assert.equal(state.input.focusCount, 1);
+});
+
+test('retorno aguarda navegador ativo e não muda foco se outra página ou modal estiver aberto', () => {
+    const state = setup(({ document }) => document.nextInput);
+    state.document.nextInput = state.input;
+    state.document.focused = false;
+    state.documentEvents.visibilitychange();
+    assert.equal(state.input.focusCount, 0);
+    state.document.focused = true;
+    state.document.nextInput = null;
+    state.document.activeElement = {};
+    const active = state.document.activeElement;
+    state.windowEvents.focus();
+    assert.equal(state.document.activeElement, active);
+});
 
 test('prévia externa não conclui nem formata uma digitação parcial', () => {
     const { input, document, guard, windowEvents } = setup();
