@@ -70,7 +70,8 @@ test('limita rascunhos grandes para manter o editor utilizável', () => {
     assert.equal(result[0].label.length, 40);
 });
 test('comprimento do cupom acompanha o conteúdo com margem e limite de página', () => {
-    assert.equal(paperHeight(0), 60);
+    assert.equal(paperHeight(0), 1);
+    assert.equal(paperHeight(100), 28);
     assert.ok(paperHeight(600) > paperHeight(300));
     assert.equal(paperHeight(100000), 2500);
 });

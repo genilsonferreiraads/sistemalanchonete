@@ -7,12 +7,16 @@ const NoteComposer = require('../note-composer.js');
 const source = fs.readFileSync(path.join(__dirname, '..', 'notes-page.js'), 'utf8');
 const printSource = source.slice(source.indexOf("    printButton.addEventListener('click'"), source.indexOf("    page.addEventListener('custom-notes-open'"));
 
-function setup(fields, width = '80', fail = false) {
+function setup(fields, width = '80', fail = false, receiptHeight = 600) {
     const classes = new Set(), rendered = [], handlers = {};
     const message = { textContent: '' }, printStyle = { textContent: '' };
     const control = { attributes: {}, setAttribute(key, value) { this.attributes[key] = value; }, focus() { this.focused = true; } };
     const preview = { name: 'preview', getBoundingClientRect: () => ({ height: 600 }) };
-    const receipt = { name: 'receipt' };
+    const measuring = new Set();
+    const receipt = { name: 'receipt',
+        classList: { add(name) { measuring.add(name); }, remove(name) { measuring.delete(name); } },
+        get offsetHeight() { assert.ok(measuring.has('note-receipt-measuring')); return receiptHeight; }
+    };
     let calls = 0, click;
     vm.runInNewContext(printSource, {
         NoteComposer, fields, width, message, printStyle, preview, receipt,
@@ -37,13 +41,19 @@ for (const width of ['58', '80']) {
         assert.equal(state.rendered[1].target, 'receipt');
         assert.equal(state.rendered[1].entries.length, 3);
         assert.equal(state.rendered[1].entries[2].value.replace(/\s/g, ' '), 'R$ 150,00');
-        assert.match(state.printStyle.textContent, new RegExp(`size: ${width}mm 167mm`));
+        assert.match(state.printStyle.textContent, new RegExp(`size: ${width}mm 160mm`));
         state.handlers.afterprint();
         assert.equal(state.classes.size, 0);
         assert.equal(state.printStyle.textContent, '');
         assert.equal(fields[2].value, '150');
     });
 }
+test('nota curta usa a altura do papel real sem reservar um mínimo de seis centímetros', () => {
+    const state = setup([{ id: '1', type: 'aviso', value: 'Retirar no balcão' }], '80', false, 135);
+    state.click();
+    assert.match(state.printStyle.textContent, /size: 80mm 37mm/);
+});
+
 test('valor inválido não é enviado à impressão e recebe foco para correção', () => {
     const state = setup([{ id: '1', type: 'valor', value: '1,234' }]);
     state.click();

@@ -57,7 +57,7 @@ const NoteComposer = (() => {
         });
     }
     function paperHeight(contentPixels) {
-        return Math.max(60, Math.min(2500, Math.ceil(contentPixels * 25.4 / 96) + 8));
+        return Math.max(1, Math.min(2500, Math.ceil(contentPixels * 25.4 / 96) + 1));
     }
     function createDraft(fields, now = Date.now()) {
         return { fields: normalize(fields), expiresAt: now + DRAFT_TTL };

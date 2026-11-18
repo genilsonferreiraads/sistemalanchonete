@@ -292,7 +292,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         renderPaper(preview, result.entries);
         renderPaper(receipt, result.entries);
-        const height = NoteComposer.paperHeight(preview.getBoundingClientRect().height);
+        receipt.classList.add('note-receipt-measuring');
+        let height;
+        try {
+            height = NoteComposer.paperHeight(receipt.offsetHeight);
+        } finally {
+            receipt.classList.remove('note-receipt-measuring');
+        }
         printStyle.textContent = '@page { size: ' + width + 'mm ' + height + 'mm; margin: 0; }';
         document.body.classList.add('printing-custom-note');
         try { window.print(); }
