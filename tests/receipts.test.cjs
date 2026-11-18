@@ -6,12 +6,22 @@ const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '..', 'script.js'), 'utf8');
 const printSource = source.slice(source.indexOf('    const receiptPageStyle'), source.indexOf('    // Voltar para a página principal'));
 
-function setup(width, ready = true, savedWidth = null) {
+function setup(width, ready = true, savedWidth = null, measuredHeight = 180) {
     const elements = {};
     for (const id of ['receiptAmount', 'receiptConcept', 'receiptSubtitle', 'receiptSummary', 'receiptSupply', 'receiptSeparate', 'receiptCardPix', 'receiptDate', 'receiptPaperWidth', 'printCashClosing', 'printCardPix', 'printCardPixMain', 'finalTotalContainer']) {
         elements[id] = { textContent: '', value: width, style: {}, addEventListener(event, handler) { this[event] = handler; } };
     }
     const classes = new Set();
+    const measuringClasses = new Set();
+    const receiptProperties = new Map();
+    elements.cardPixReceipt = {
+        style: { setProperty(name, value) { receiptProperties.set(name, value); } },
+        classList: { add(name) { measuringClasses.add(name); }, remove(name) { measuringClasses.delete(name); } },
+        get offsetHeight() {
+            assert.ok(measuringClasses.has('receipt-measuring'));
+            return typeof measuredHeight === 'function' ? measuredHeight(elements) : measuredHeight;
+        }
+    };
     const printStyle = {};
     const handlers = {};
     let calls = 0;
@@ -42,7 +52,7 @@ function setup(width, ready = true, savedWidth = null) {
         },
         window: { print() { calls++; }, addEventListener(event, handler) { handlers[event] = handler; } }
     });
-    return { elements, classes, printStyle, handlers, storage, paperButtons, calls: () => calls };
+    return { elements, classes, printStyle, handlers, storage, paperButtons, measuringClasses, receiptProperties, calls: () => calls };
 }
 
 for (const width of ['58', '80']) {
@@ -60,7 +70,7 @@ for (const width of ['58', '80']) {
             assert.equal(state.elements.receiptSeparate.textContent, full ? '1.020,00' : '');
             assert.equal(state.elements.receiptCardPix.textContent, full ? '500,00' : '');
             assert.ok(state.elements.receiptDate.textContent);
-            const height = full ? (width === '58' ? 115 : 100) : 80;
+            const height = Math.ceil(180 * 25.4 / 96) + 1;
             assert.match(state.printStyle.textContent, new RegExp(`size: ${width}mm ${height}mm`));
             assert.match(state.printStyle.textContent, new RegExp(`font-size: ${width === '58' ? 22 : 28}pt`));
             assert.equal(state.calls(), 1);
@@ -70,6 +80,25 @@ for (const width of ['58', '80']) {
         });
     }
 }
+
+test('altura acompanha o conteúdo e é recalculada ao alternar fechamento e cartão/Pix', () => {
+    const state = setup('80', true, null, elements => elements.receiptSummary.hidden ? 132 : 242);
+    state.elements.printCashClosing.click();
+    assert.match(state.printStyle.textContent, /size: 80mm 66mm/);
+    state.handlers.afterprint();
+    state.elements.printCardPix.click();
+    assert.match(state.printStyle.textContent, /size: 80mm 36mm/);
+    assert.equal(state.measuringClasses.size, 0);
+    assert.equal(state.receiptProperties.get('--receipt-width'), '80mm');
+    assert.equal(state.receiptProperties.get('--receipt-amount-size'), '28pt');
+});
+
+test('conteúdo mais alto aumenta o papel, sem truncar em uma altura fixa', () => {
+    const state = setup('58', true, null, 430);
+    state.elements.printCashClosing.click();
+    assert.match(state.printStyle.textContent, /size: 58mm 115mm/);
+    assert.equal(state.measuringClasses.size, 0);
+});
 
 test('fechamento incompleto ou inválido não abre impressão, cartão/Pix continua independente', () => {
     const state = setup('80', false);
@@ -92,7 +121,7 @@ test('restaura a largura de bobina escolhida anteriormente', () => {
     const state = setup('80', true, '58');
     assert.equal(state.elements.receiptPaperWidth.value, '58');
     state.elements.printCashClosing.click();
-    assert.match(state.printStyle.textContent, /size: 58mm 115mm/);
+    assert.match(state.printStyle.textContent, /size: 58mm 49mm/);
 });
 
 test('guarda a largura de papel para as proximas impressoes', () => {
@@ -110,7 +139,7 @@ test('seletor de bobina destaca uma única opção e aplica a largura na impress
     assert.equal(state.paperButtons[0].attributes['aria-pressed'], 'true');
     assert.equal(state.paperButtons[1].attributes['aria-pressed'], 'false');
     state.elements.printCashClosing.click();
-    assert.match(state.printStyle.textContent, /size: 58mm 115mm/);
+    assert.match(state.printStyle.textContent, /size: 58mm 49mm/);
     state.handlers.afterprint();
     state.paperButtons[1].click();
     assert.equal(state.storage.get('receiptPaperWidth'), '80');

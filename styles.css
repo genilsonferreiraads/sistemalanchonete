@@ -880,6 +880,32 @@ body {
 
 #cardPixReceipt { display: none; }
 
+/* Compartilhado entre a medição e o papel: altura acompanha o conteúdo. */
+#cardPixReceipt {
+    box-sizing: border-box;
+    width: var(--receipt-width, 80mm);
+    padding: 2mm 3mm;
+    margin: 0;
+    color: #000;
+    background: #fff;
+    font: 10pt/1.25 Arial, sans-serif;
+    text-align: center;
+    overflow-wrap: anywhere;
+}
+#cardPixReceipt.receipt-measuring { display: block; position: fixed; left: -10000px; top: 0; visibility: hidden; }
+#cardPixReceipt h1 { margin: 0 0 1mm; font: bold 11pt/1.2 Arial, sans-serif; color: #000; }
+#cardPixReceipt p { margin: 0.5mm 0; }
+#cardPixReceipt .receipt-total { margin: 1.5mm 0; padding: 1.5mm 0; border-block: 1px dashed #000; break-inside: avoid; }
+#cardPixReceipt h2 { margin: 0 0 1mm; font: bold 10pt/1.2 Arial, sans-serif; color: #000; }
+#cardPixReceipt strong { display: block; font: 900 var(--receipt-amount-size, 28pt)/1.15 Arial, sans-serif; letter-spacing: -0.5pt; white-space: nowrap; }
+#cardPixReceipt .receipt-footer { font-size: 8pt; }
+#cardPixReceipt #receiptSummary { margin-top: 1.5mm; font-size: 9pt; }
+#cardPixReceipt [hidden] { display: none !important; }
+#cardPixReceipt #receiptSummary h3 { margin: 0 0 1mm; text-align: left; font: bold 9pt/1.25 Arial, sans-serif; }
+#cardPixReceipt .receipt-summary-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5mm 2mm; margin-bottom: 1mm; text-align: left; break-inside: avoid; }
+#cardPixReceipt .receipt-summary-row > span { flex: 1 1 24mm; }
+#cardPixReceipt .receipt-summary-row > b { margin-left: auto; font: bold 10pt/1.25 Arial, sans-serif; white-space: nowrap; }
+
 @media print {
     html:has(body.printing-card-pix),
     body.printing-card-pix {
@@ -891,36 +917,15 @@ body {
         padding: 0 !important;
         overflow: visible !important;
         background: #fff !important;
+        transform: none !important;
     }
 
+    body.printing-card-pix { display: block !important; }
     body.printing-card-pix > :not(#cardPixReceipt) { display: none !important; }
 
     body.printing-card-pix #cardPixReceipt {
         display: block !important;
-        box-sizing: border-box;
-        width: 100%;
-        max-width: 80mm;
-        padding: 4mm;
-        margin: 0;
-        color: #000;
-        background: #fff;
-        font: 10pt/1.35 Arial, sans-serif;
-        text-align: center;
-        overflow-wrap: anywhere;
     }
-
-    #cardPixReceipt h1 { margin: 0 0 2mm; font: bold 12pt/1.3 Arial, sans-serif; color: #000; }
-    #cardPixReceipt p { margin: 1mm 0; }
-    #cardPixReceipt .receipt-total { margin: 3mm 0; padding: 3mm 0; border-block: 1px dashed #000; break-inside: avoid; }
-    #cardPixReceipt h2 { margin: 0 0 2mm; font: bold 10pt/1.3 Arial, sans-serif; color: #000; }
-    #cardPixReceipt strong { display: block; font: 900 28pt/1.15 Arial, sans-serif; letter-spacing: -0.5pt; white-space: nowrap; }
-    #cardPixReceipt .receipt-footer { font-size: 8pt; }
-    #cardPixReceipt #receiptSummary { margin-top: 4mm; font-size: 9pt; }
-    #cardPixReceipt #receiptSummary[hidden] { display: none; }
-    #cardPixReceipt #receiptSummary h3 { margin: 0 0 3mm; text-align: left; font: bold 9pt/1.35 Arial, sans-serif; }
-    #cardPixReceipt .receipt-summary-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1mm 3mm; margin-bottom: 2mm; text-align: left; break-inside: avoid; }
-    #cardPixReceipt .receipt-summary-row > span { flex: 1 1 27mm; }
-    #cardPixReceipt .receipt-summary-row > b { margin-left: auto; font: bold 10pt/1.35 Arial, sans-serif; white-space: nowrap; }
 }
 
 .cash-summary-column {

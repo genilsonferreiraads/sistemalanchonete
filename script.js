@@ -649,7 +649,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const paperWidth = document.getElementById('receiptPaperWidth').value === '58' ? 58 : 80;
         const baseSize = paperWidth === 58 ? 22 : 28;
         const amountSize = Math.min(baseSize, baseSize * 11 / Math.max(amount.length, 11));
-        const paperHeight = includeSummary ? (paperWidth === 58 ? 115 : 100) : 80;
+        const receipt = document.getElementById('cardPixReceipt');
+        receipt.style.setProperty('--receipt-width', `${paperWidth}mm`);
+        receipt.style.setProperty('--receipt-amount-size', `${amountSize}pt`);
+        // Mede com a mesma tipografia e largura da impressão, sem exibir na tela.
+        receipt.classList.add('receipt-measuring');
+        let paperHeight;
+        try {
+            paperHeight = Math.ceil(receipt.offsetHeight * 25.4 / 96) + 1;
+        } finally {
+            receipt.classList.remove('receipt-measuring');
+        }
         receiptPageStyle.textContent = `@page { size: ${paperWidth}mm ${paperHeight}mm; margin: 0; }
             #cardPixReceipt #receiptAmount { font-size: ${amountSize}pt; }`;
         document.body.classList.add('printing-card-pix');
