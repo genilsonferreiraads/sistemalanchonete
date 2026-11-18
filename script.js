@@ -1,3 +1,188 @@
+// Formatação compartilhada pelo cadastro, edição e busca de clientes.
+function cleanClientDocument(value) {
+    return String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+function clientDocumentType(value) {
+    const clean = cleanClientDocument(value);
+    return clean.length > 11 || /[A-Z]/.test(clean) ? 'cnpj' : 'cpf';
+}
+function formatClientDocument(value, type) {
+    const clean = cleanClientDocument(value);
+    const mask = type === 'cnpj' ? 'XX.XXX.XXX/XXXX-XX' : 'XXX.XXX.XXX-XX';
+    const chars = (type === 'cpf' ? clean.replace(/\D/g, '') : clean).slice(0, type === 'cpf' ? 11 : 14);
+    let formatted = '', index = 0;
+    for (const char of mask) {
+        if (index >= chars.length) break;
+        formatted += char === 'X' ? chars[index++] : char;
+    }
+    return formatted;
+}
+function isClientDocumentComplete(value, type) {
+    const clean = cleanClientDocument(value);
+    return type === 'cpf' ? /^\d{11}$/.test(clean) : /^[A-Z0-9]{12}\d{2}$/.test(clean);
+}
+function normalizeClientSearch(value) {
+    return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
+function setupClientForm(form, nameInput, documentInput) {
+    const radios = [...form.querySelectorAll('input[type="radio"]')];
+    const nameError = document.getElementById(nameInput.id + 'Error');
+    const documentError = document.getElementById(documentInput.id + 'Error');
+    const status = form.querySelector('.client-form-status');
+    const getType = () => radios.find(radio => radio.checked).value;
+    const dialog = form.closest('[role="dialog"]');
+    dialog.addEventListener('keydown', event => {
+        if (event.key !== 'Tab') return;
+        const controls = [...dialog.querySelectorAll('button:not(:disabled), input:not(:disabled)')];
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        }
+    });
+    function clearError(input, error) {
+        input.removeAttribute('aria-invalid');
+        error.textContent = '';
+    }
+    function updateLabels() {
+        const company = getType() === 'cnpj';
+        form.querySelector('[data-name-label]').textContent = company ? 'Nome da empresa / razão social' : 'Nome completo';
+        form.querySelector('[data-document-label]').textContent = company ? 'CNPJ' : 'CPF';
+        nameInput.placeholder = company ? 'Nome da empresa' : 'Nome do cliente';
+        nameInput.autocomplete = company ? 'organization' : 'name';
+        documentInput.placeholder = company ? '00.000.000/0000-00' : '000.000.000-00';
+        documentInput.inputMode = company ? 'text' : 'numeric';
+        clearError(documentInput, documentError);
+    }
+    function setType(type) {
+        radios.forEach(radio => { radio.checked = radio.value === type; });
+        updateLabels();
+    }
+    radios.forEach(radio => radio.addEventListener('change', updateLabels));
+    nameInput.addEventListener('input', () => clearError(nameInput, nameError));
+    nameInput.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            documentInput.focus();
+        }
+    });
+    documentInput.addEventListener('input', () => {
+        documentInput.value = formatClientDocument(documentInput.value, getType());
+        clearError(documentInput, documentError);
+    });
+    documentInput.addEventListener('paste', event => {
+        const pasted = event.clipboardData.getData('text');
+        const clean = cleanClientDocument(pasted);
+        if (clean.length === 11 || clean.length === 14) {
+            event.preventDefault();
+            setType(clientDocumentType(clean));
+            documentInput.value = formatClientDocument(clean, getType());
+        }
+    });
+    function validate() {
+        clearError(nameInput, nameError);
+        clearError(documentInput, documentError);
+        let valid = true;
+        if (nameInput.value.trim().length < 3) {
+            nameError.textContent = getType() === 'cnpj' ? 'Informe o nome da empresa.' : 'Informe o nome completo.';
+            nameInput.setAttribute('aria-invalid', 'true');
+            valid = false;
+        }
+        if (!isClientDocumentComplete(documentInput.value, getType())) {
+            documentError.textContent = getType() === 'cnpj' ? 'Informe o CNPJ completo, com 14 caracteres e os 2 números finais.' : 'Informe os 11 números do CPF.';
+            documentInput.setAttribute('aria-invalid', 'true');
+            valid = false;
+        }
+        if (!valid) form.querySelector('[aria-invalid="true"]').focus();
+        return valid;
+    }
+    function reset() {
+        form.reset();
+        setType('cpf');
+        clearError(nameInput, nameError);
+        clearError(documentInput, documentError);
+        status.textContent = '';
+    }
+    updateLabels();
+    return { getType, setType, validate, reset, status };
+}
+
+// Uma janela externa pode interromper a edição sem concluir a nota.
+function createNoteFocusGuard(grid, pageDocument = document, pageWindow = window) {
+    let interrupted = null;
+    function remember(input) {
+        if (!input || !grid.contains(input) || !input.classList.contains('cell-input')) return;
+        interrupted = {
+            input,
+            value: input.value,
+            start: input.selectionStart,
+            end: input.selectionEnd,
+            direction: input.selectionDirection
+        };
+    }
+    function restore(input) {
+        if (!interrupted || interrupted.input !== input) return false;
+        const saved = interrupted;
+        interrupted = null;
+        // Nunca sobrescreve uma edição, limpeza ou atualização posterior.
+        if (input.value === saved.value) {
+            input.setSelectionRange(saved.start, saved.end, saved.direction);
+        }
+        return true;
+    }
+    pageWindow.addEventListener('blur', () => remember(pageDocument.activeElement));
+    pageDocument.addEventListener('visibilitychange', () => {
+        if (pageDocument.hidden) remember(pageDocument.activeElement);
+    });
+    pageWindow.addEventListener('focus', () => {
+        if (!interrupted) return;
+        const input = interrupted.input;
+        if (!input.isConnected || !input.getClientRects().length) {
+            interrupted = null;
+            return;
+        }
+        const active = pageDocument.activeElement;
+        if (active === input) {
+            restore(input);
+        } else if (!active || active === pageDocument.body) {
+            input.focus({ preventScroll: true });
+            restore(input);
+        } else {
+            // Respeita a escolha de outro campo ou botão ao retornar.
+            interrupted = null;
+        }
+    });
+    return {
+        pauseOnBlur(input) {
+            if (!pageDocument.hasFocus() || pageDocument.hidden) {
+                remember(input);
+                return true;
+            }
+            interrupted = null;
+            return false;
+        },
+        resumeOnFocus: restore
+    };
+}
+
+function isFirstNotePageComplete(storage) {
+    for (let number = 1; number <= 70; number++) {
+        const value = storage.getItem('nota' + number);
+        if (value === null || !value.trim() || !Number.isFinite(Number(value))) return false;
+    }
+    return true;
+}
+
+function findNextEmptyNote(grid) {
+    return [...grid.querySelectorAll('.cell-input')]
+        .sort((a, b) => Number(a.dataset.noteNumber) - Number(b.dataset.noteNumber))
+        .find(input => !input.value.trim() || input.value === '0,00');
+}
+
 // Declarar elementos principais no topo para acesso global
 const clientesPage = document.getElementById('clientesPage');
 const clientesBtn = document.getElementById('clientesBtn');
@@ -7,6 +192,31 @@ const clientesLista = document.getElementById('clientesLista');
 document.addEventListener('DOMContentLoaded', () => {
     const totalElement = document.getElementById('total');
     const grid = document.querySelector('.grid');
+    const customNotesPage = document.getElementById('customNotesPage');
+    const noteFocusGuard = createNoteFocusGuard(grid);
+    let focusedNoteInput = null;
+    function focusNextEmptyNote() {
+        if (!grid.getClientRects().length) return;
+        const input = findNextEmptyNote(grid);
+        if (input) input.focus({ preventScroll: true });
+    }
+    // Clicar em uma área livre volta à digitação sem capturar botões ou modais.
+    document.addEventListener('pointerdown', event => {
+        if (event.button !== 0 || event.defaultPrevented || !grid.getClientRects().length) return;
+        const target = event.target;
+        if (target.closest('button, input, select, textarea, a, label, .modal, [role="dialog"]')) return;
+        if (target !== document.body && !target.closest('.container')) return;
+        event.preventDefault();
+        const cell = target.closest('.cell');
+        if (cell) {
+            cell.querySelector('input').focus({ preventScroll: true });
+        } else if (grid.contains(document.activeElement)) {
+            // Mantém o campo e o cursor se uma digitação já estiver em andamento.
+            return;
+        } else {
+            focusNextEmptyNote();
+        }
+    });
     const clearAllButton = document.getElementById('clearAll');
     const numGroups = 7;
     const numNotesPerGroup = 10;
@@ -144,7 +354,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const grid = document.querySelector('.grid');
             const start = (currentPage - 1) * CELLS_PER_PAGE + 1;
             const inputToFocus = Array.from(grid.querySelectorAll('input'))
-                .find(input => input.parentElement.querySelector('div').textContent.trim() === `NOTA ${start}`);
+                .find(input => Number(input.dataset.noteNumber) === start);
             if (inputToFocus) {
                 inputToFocus.focus();
                 localStorage.setItem('lastFocusedNotaNumber', start);
@@ -194,16 +404,18 @@ document.addEventListener('DOMContentLoaded', () => {
         grid.innerHTML = '';
         const start = (page - 1) * CELLS_PER_PAGE + 1;
         const end = page * CELLS_PER_PAGE;
-        let lastFocusedCellInput = null;
         for (let i = 0; i < numNotesPerGroup; i++) {
             for (let j = 0; j < numGroups; j++) {
                 const notaNumber = start + i + j * numNotesPerGroup;
                 const cell = document.createElement('div');
                 cell.className = 'cell';
                 const cellLabel = document.createElement('div');
-                cellLabel.textContent = `NOTA ${notaNumber}`;
+                cellLabel.textContent = String(notaNumber);
                 const cellInput = document.createElement('input');
                 cellInput.type = 'text';
+                cellInput.dataset.noteNumber = notaNumber;
+                cellInput.setAttribute('aria-label', `Valor da nota ${notaNumber}`);
+                cellInput.inputMode = 'decimal';
                 const storedValue = localStorage.getItem(`nota${notaNumber}`);
                 cellInput.value = storedValue ? formatCurrency(parseFloat(storedValue)) : '';
                 cellInput.dataset.originalValue = storedValue ? storedValue : '';
@@ -218,7 +430,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         if (targetNotaNumber) {
                             const nextInput = Array.from(document.querySelectorAll('.cell input'))
-                                .find(input => input.parentElement.querySelector('div').textContent.trim() === `NOTA ${targetNotaNumber}`);
+                                .find(input => Number(input.dataset.noteNumber) === targetNotaNumber);
                             if (nextInput) {
                                 nextInput.focus();
                             }
@@ -241,7 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const nextNota = notaNumber + 1;
                         if (nextNota <= end) {
                             const nextInput = Array.from(document.querySelectorAll('.cell input'))
-                                .find(input => input.parentElement.querySelector('div').textContent.trim() === `NOTA ${nextNota}`);
+                                .find(input => Number(input.dataset.noteNumber) === nextNota);
                             if (nextInput) {
                                 if ((notaNumber - start + 1) % numNotesPerGroup === 0) {
                                     nextInput.classList.add('col-change-animate');
@@ -253,6 +465,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
                 cellInput.addEventListener('blur', (e) => {
+                    if (noteFocusGuard.pauseOnBlur(e.target)) return;
                     const value = parseInputValue(e.target.value);
                     if (value !== null) {
                         e.target.value = formatCurrency(value);
@@ -261,19 +474,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         e.target.value = '';
                         localStorage.removeItem(`nota${notaNumber}`);
                     }
+                    updateTotal();
                     renderAddPageButton();
-                    setTimeout(() => {
-                        const active = document.activeElement;
-                        if (!active || !active.classList.contains('cell-input')) {
-                            if (lastFocusedCellInput) {
-                                lastFocusedCellInput.focus();
-                            }
-                        }
-                    }, 0);
                 });
                 cellInput.addEventListener('focus', (e) => {
-                    e.target.setSelectionRange(0, e.target.value.length);
-                    lastFocusedCellInput = e.target;
+                    if (!noteFocusGuard.resumeOnFocus(e.target) && focusedNoteInput !== e.target) {
+                        e.target.setSelectionRange(0, e.target.value.length);
+                    }
+                    focusedNoteInput = e.target;
                     localStorage.setItem('lastFocusedNotaNumber', notaNumber);
                 });
                 cellInput.addEventListener('input', (e) => {
@@ -289,15 +497,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 grid.appendChild(cell);
             }
         }
-        // Foco automático na próxima célula vazia da página atual
-        for (let notaNumber = start; notaNumber <= end; notaNumber++) {
-            const cellInput = Array.from(document.querySelectorAll('.cell input'))
-                .find(input => input.parentElement.querySelector('div').textContent.trim() === `NOTA ${notaNumber}`);
-            if (cellInput && (!cellInput.value || cellInput.value === '0,00')) {
-                setTimeout(() => cellInput.focus(), 0);
-                break;
-            }
-        }
+        setTimeout(focusNextEmptyNote, 0);
         renderAddPageButton();
     }
 
@@ -309,6 +509,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const clientesPageVisible = clientesPage && clientesPage.style.display === 'block';
         if (!mainPageVisible || clientesPageVisible) {
             if (nav) nav.style.display = 'none';
+            return;
+        }
+        if (!isFirstNotePageComplete(localStorage)) {
+            if (nav) nav.style.display = 'none';
+            if (currentPage !== 1) {
+                currentPage = 1;
+                localStorage.setItem('currentCellPage', '1');
+                createCells(1);
+            }
             return;
         }
         if (!nav) {
@@ -325,6 +534,7 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let p = 1; p <= 2; p++) {
             const btn = document.createElement('button');
             btn.textContent = `Página ${p}`;
+            if (p === currentPage) btn.setAttribute('aria-current', 'page');
             btn.style.padding = '4px 12px';
             btn.style.borderRadius = '6px';
             btn.style.border = '1.5px solid #09974b';
@@ -345,7 +555,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderAddPageButton() {
         let btn = document.getElementById('addCellPageBtn');
         if (btn) btn.remove();
-        // Não exibe mais o botão, pois a criação é automática
+        renderPageNavigation();
     }
 
     // Inicialização
@@ -361,20 +571,6 @@ document.addEventListener('DOMContentLoaded', () => {
     renderPageNavigation();
     createCells(currentPage);
     updateTotal();
-    // Foco automático na primeira célula vazia da página atual ao carregar
-    (function focusFirstEmptyNota() {
-        const start = (currentPage - 1) * CELLS_PER_PAGE + 1;
-        const end = currentPage * CELLS_PER_PAGE;
-        for (let notaNumber = start; notaNumber <= end; notaNumber++) {
-            const cellInput = Array.from(document.querySelectorAll('.cell input'))
-                .find(input => input.parentElement.querySelector('div').textContent.trim() === `NOTA ${notaNumber}`);
-            if (cellInput && (!cellInput.value || cellInput.value === '0,00')) {
-                cellInput.focus();
-                return;
-            }
-        }
-    })();
-
     // O botão Limpar Tudo agora exibe o modal de confirmação
     clearAllButton.addEventListener('click', () => {
         document.getElementById('confirmModal').style.display = 'flex';
@@ -392,13 +588,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     closeModal.addEventListener('click', closeConfirmModal);
     confirmNo.addEventListener('click', closeConfirmModal);
-    confirmModal.addEventListener('click', function(e) {
+    confirmModal.addEventListener('click', function (e) {
         if (e.target === confirmModal) closeConfirmModal();
     });
-    document.addEventListener('keydown', function(e) {
+    document.addEventListener('keydown', function (e) {
         if (confirmModal.style.display === 'flex' && e.key === 'Escape') closeConfirmModal();
     });
-    confirmYes.addEventListener('click', function() {
+    confirmYes.addEventListener('click', function () {
         closeConfirmModal();
         clearAll();
     });
@@ -413,7 +609,99 @@ document.addEventListener('DOMContentLoaded', () => {
         renderPageNavigation(); // Atualiza navegação
     });
 
+    // Os dois comprovantes compartilham o mesmo formato de bobina térmica.
+    const receiptPageStyle = document.createElement('style');
+    receiptPageStyle.media = 'print';
+    document.head.appendChild(receiptPageStyle);
+    const receiptPaperSelect = document.getElementById('receiptPaperWidth');
+    const savedReceiptPaper = localStorage.getItem('receiptPaperWidth');
+    if (savedReceiptPaper === '58' || savedReceiptPaper === '80') receiptPaperSelect.value = savedReceiptPaper;
+    const receiptPaperButtons = [...document.querySelectorAll('[data-receipt-paper]')];
+    function syncReceiptPaperButtons() {
+        receiptPaperButtons.forEach(button => {
+            button.setAttribute('aria-pressed', String(button.dataset.receiptPaper === receiptPaperSelect.value));
+        });
+    }
+    function saveReceiptPaper() {
+        localStorage.setItem('receiptPaperWidth', receiptPaperSelect.value === '58' ? '58' : '80');
+        syncReceiptPaperButtons();
+    }
+    receiptPaperSelect.addEventListener('change', saveReceiptPaper);
+    receiptPaperButtons.forEach(button => button.addEventListener('click', () => {
+        receiptPaperSelect.value = button.dataset.receiptPaper;
+        saveReceiptPaper();
+        const paperSettings = button.closest?.('details');
+        if (paperSettings) paperSettings.open = false;
+    }));
+    syncReceiptPaperButtons();
+
+    function printCashReceipt(amount, concept, subtitle = '', includeSummary = false) {
+        document.getElementById('receiptAmount').textContent = amount;
+        document.getElementById('receiptConcept').textContent = concept;
+        const receiptSubtitle = document.getElementById('receiptSubtitle');
+        receiptSubtitle.textContent = subtitle;
+        receiptSubtitle.hidden = !subtitle;
+        document.getElementById('receiptSummary').hidden = !includeSummary;
+        document.getElementById('receiptSupply').textContent = includeSummary ? totalCashElement.textContent.replace(/^R\$\s*/, '') : '';
+        document.getElementById('receiptSeparate').textContent = includeSummary ? totalSeparateElement.textContent.replace(/^R\$\s*/, '') : '';
+        document.getElementById('receiptCardPix').textContent = includeSummary ? totalSheetElement.textContent.replace(/^R\$\s*/, '') : '';
+        document.getElementById('receiptDate').textContent = new Date().toLocaleString('pt-BR');
+        const paperWidth = document.getElementById('receiptPaperWidth').value === '58' ? 58 : 80;
+        const baseSize = paperWidth === 58 ? 22 : 28;
+        const amountSize = Math.min(baseSize, baseSize * 11 / Math.max(amount.length, 11));
+        const paperHeight = includeSummary ? (paperWidth === 58 ? 115 : 100) : 80;
+        receiptPageStyle.textContent = `@page { size: ${paperWidth}mm ${paperHeight}mm; margin: 0; }
+            #cardPixReceipt #receiptAmount { font-size: ${amountSize}pt; }`;
+        document.body.classList.add('printing-card-pix');
+        try {
+            window.print();
+        } catch (error) {
+            document.body.classList.remove('printing-card-pix');
+            receiptPageStyle.textContent = '';
+            throw error;
+        }
+    }
+
+    function printCardPixReceipt() {
+        updateTotals();
+        printCashReceipt(totalSheetElement.textContent, 'Total em cartão e Pix');
+    }
+
+    document.getElementById('printCashClosing').addEventListener('click', () => {
+        updateTotals();
+        if (document.getElementById('finalTotalContainer').style.display === 'none') return;
+        printCashReceipt(finalTotalElement.textContent, 'TOTAL FECHAMENTO DO CAIXA', '', true);
+    });
+
+    document.getElementById('printCardPix').addEventListener('click', printCardPixReceipt);
+    document.getElementById('printCardPixMain').addEventListener('click', printCardPixReceipt);
+
+    window.addEventListener('afterprint', () => {
+        document.body.classList.remove('printing-card-pix');
+        receiptPageStyle.textContent = '';
+    });
+
     // Voltar para a página principal
+    const appSideMenu = document.querySelector('.app-side-menu');
+    document.addEventListener('click', event => {
+        if (appSideMenu.open && !appSideMenu.contains(event.target)) {
+            appSideMenu.open = false;
+        }
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key !== 'Escape' || event.defaultPrevented) return;
+        if (appSideMenu.open) {
+            appSideMenu.open = false;
+            appSideMenu.querySelector('summary').focus();
+            event.preventDefault();
+            return;
+        }
+        if (cashClosingPage.style.display === 'block') {
+            event.preventDefault();
+            backToMainButton.click();
+        }
+    });
+
     backToMainButton.addEventListener('click', () => {
         cashClosingPage.style.display = 'none';
         cashClosingPage.classList.remove('show');
@@ -422,226 +710,101 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => {
             createCells(currentPage); // Garante que as células são recriadas
             setTimeout(() => {
-                const grid = document.querySelector('.grid');
-                const start = (currentPage - 1) * CELLS_PER_PAGE + 1;
-                const end = currentPage * CELLS_PER_PAGE;
-                const lastNota = parseInt(localStorage.getItem('lastFocusedNotaNumber'));
-                if (!isNaN(lastNota) && lastNota >= start && lastNota <= end) {
-                    const inputToFocus = Array.from(grid.querySelectorAll('input'))
-                        .find(input => input.parentElement.querySelector('div').textContent.trim() === `NOTA ${lastNota}`);
-                    if (inputToFocus) {
-                        inputToFocus.focus();
-                    }
-                }
+                focusNextEmptyNote();
                 renderPageNavigation(); // Atualiza navegação
             }, 0);
         }, 0);
     });
 
-    // Configurar inputs de moeda
-    Object.values(cashInputs).forEach((input, index, arr) => {
-        input.addEventListener('input', function() {
-            this.value = this.value.replace(/[^\d,]/g, '');
-            if (this.value.trim() === '') {
-                updateTotals({onlyCashStatus: false});
-                updateTotals({onlyCashStatus: true});
-                saveValues();
-            }
-        });
-        input.addEventListener('keydown', function(e) {
-            if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                if (index < arr.length - 1) {
-                    arr[index + 1].focus();
-                    arr[index + 1].select();
-                }
-            } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                if (index > 0) {
-                    arr[index - 1].focus();
-                    arr[index - 1].select();
-                }
-            } else if (e.key === 'Enter') {
-                e.preventDefault();
-                const value = parseInputValue(this.value);
-                if (value !== null) {
-                    this.value = formatCurrency(value);
-                } else {
-                    this.value = '';
-                }
-                updateTotals({onlyCashStatus: false});
-                updateTotals({onlyCashStatus: true});
-                saveValues();
-                if (index < arr.length - 1) {
-                    arr[index + 1].focus();
-                    arr[index + 1].select();
-                }
-            } else if (e.key === 'Backspace' || e.key === 'Delete') {
-                setTimeout(() => {
-                    updateTotals({onlyCashStatus: false});
-                    updateTotals({onlyCashStatus: true});
-                    saveValues();
-                }, 0);
-            }
-        });
-        input.addEventListener('blur', function() {
-            const value = parseInputValue(this.value);
-            if (value !== null) {
-                this.value = formatCurrency(value);
-            } else {
-                this.value = '';
-            }
-        });
-        input.addEventListener('focus', function() {
-            this.select();
-        });
-    });
-
-    // Configurar input de valores separados
-    separateValueInput.addEventListener('input', function() {
-        this.value = this.value.replace(/[^\d,]/g, '');
-        if (this.value.trim() === '') {
-            updateTotals({onlyCashStatus: false});
+    // Atualiza a conferência ao digitar; Enter só formata e avança.
+    const cashFieldList = [...Object.values(cashInputs), separateValueInput];
+    const cashCountingFieldCount = Object.keys(cashInputs).length;
+    function formatCashAmount(cents) {
+        return (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    function formatCashField(input) {
+        const cents = CashCalculator.parseCurrencyCents(input.value);
+        if (cents !== null) input.value = formatCashAmount(cents);
+        updateTotals();
+        saveValues();
+    }
+    cashFieldList.forEach((input, index) => {
+        input.addEventListener('input', () => {
+            updateTotals();
             saveValues();
-        }
-    });
-
-    separateValueInput.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            const value = parseInputValue(this.value);
-            if (value !== null) {
-                this.value = formatCurrency(value);
-            } else {
-                this.value = '';
+        });
+        input.addEventListener('blur', () => formatCashField(input));
+        input.addEventListener('focus', () => input.select());
+        input.addEventListener('keydown', event => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                formatCashField(input);
+                if (input.getAttribute('aria-invalid') !== 'true' && index < cashCountingFieldCount - 1) {
+                    cashFieldList[index + 1].focus();
+                }
+            } else if (event.key === 'ArrowDown' && index < cashCountingFieldCount - 1) {
+                event.preventDefault();
+                cashFieldList[index + 1].focus();
+            } else if (event.key === 'ArrowUp' && index > 0) {
+                event.preventDefault();
+                cashFieldList[index - 1].focus();
             }
-            updateTotals({onlyCashStatus: false});
-            saveValues();
-        } else if (e.key === 'Backspace' || e.key === 'Delete') {
-            setTimeout(() => {
-                updateTotals({onlyCashStatus: false});
-                saveValues();
-            }, 0);
-        }
+        });
     });
 
-    separateValueInput.addEventListener('blur', function() {
-        const value = parseInputValue(this.value);
-        if (value !== null) {
-            this.value = formatCurrency(value);
+    function updateTotals() {
+        const inputs = Object.values(cashInputs);
+        const result = CashCalculator.calculateCashClosing({
+            cashValues: inputs.map(input => input.value),
+            separateValue: separateValueInput.value,
+            cardPixCents: Math.round(total * 100)
+        });
+        const countLabel = document.getElementById('totalCashInputs');
+        const status = document.getElementById('cashStatusInputs');
+        const totalContainer = document.getElementById('finalTotalContainer');
+        const hint = document.getElementById('cashClosingHint');
+        cashFieldList.forEach((input, index) => {
+            const fieldKey = index === inputs.length ? 'separate' : index;
+            const invalid = !result.valid && result.invalidFields.includes(fieldKey);
+            input.toggleAttribute('aria-invalid', invalid);
+            if (invalid) input.setAttribute('aria-invalid', 'true');
+        });
+        if (!result.valid) {
+            countLabel.textContent = '—';
+            status.textContent = result.invalidFields.includes('overflow')
+                ? 'Valor acima do limite. Confira os campos.'
+                : 'Confira os valores. Use vírgula e até 2 casas decimais.';
+            status.className = 'invalid';
+            totalCashElement.textContent = '—';
+            totalSeparateElement.textContent = '—';
+            totalSheetElement.textContent = formatCurrency(total);
+            finalTotalElement.textContent = '—';
+            totalContainer.style.display = 'none';
+            hint.hidden = false;
+            hint.textContent = 'Confira os valores informados para calcular o fechamento.';
+            return;
+        }
+        const money = cents => formatCurrency(cents / 100);
+        countLabel.textContent = money(result.countedCents);
+        status.className = '';
+        if (!result.countedCents) status.textContent = '';
+        else if (result.excessCents) {
+            status.textContent = 'Retire do caixa: ' + money(result.excessCents);
+            status.className = 'excess';
+        } else if (result.missingCents) {
+            status.textContent = 'Adicione ao caixa: ' + money(result.missingCents);
+            status.className = 'lack';
         } else {
-            this.value = '';
+            status.textContent = 'Suprimento certo. Mantenha R$ 300,00 no caixa.';
+            status.className = 'ok';
         }
-    });
-
-    separateValueInput.addEventListener('focus', function() {
-        this.select();
-    });
-
-    // Função para calcular o total dos valores separados
-    function calculateSeparateTotal() {
-        const value = parseInputValue(separateValueInput.value);
-        return value !== null ? value : 0;
-    }
-
-    // Função para atualizar os totais
-    function updateTotals({ onlyCashStatus } = {}) {
-        const cashTotal = calculateCashTotal();
-        const separateTotal = calculateSeparateTotal();
-        const sheetTotal = total;
-        
-        // Atualiza o total em cédulas
-        const totalCashInputs = document.getElementById('totalCashInputs');
-        if (!onlyCashStatus) {
-            totalCashInputs.textContent = formatCurrency(cashTotal || 0); // Garante que nunca será NaN
-        }
-        
-        // Verificar o status do caixa
-        const targetAmount = 300;
-        const difference = cashTotal - targetAmount;
-        const cashStatusInputs = document.getElementById('cashStatusInputs');
-
-        // Salva o status anterior
-        const prevText = cashStatusInputs.textContent;
-        const prevClass = cashStatusInputs.className;
-        let newText = "";
-        let newClass = "";
-        if (cashTotal > 0) {
-            if (Math.abs(difference) < 0.01) {
-                newText = "Suprimento OK";
-                newClass = "ok";
-            } else if (difference > 0) {
-                newText = `Retire do caixa: ${formatCurrency(difference)}`;
-                newClass = "excess";
-            } else {
-                newText = `Adicione ao caixa: ${formatCurrency(Math.abs(difference))}`;
-                newClass = "lack";
-            }
-        }
-        // Só atualiza/anima se mudou
-        if (prevText !== newText || prevClass !== newClass) {
-            cashStatusInputs.textContent = newText;
-            cashStatusInputs.className = newClass;
-            cashStatusInputs.style.animation = 'none';
-            cashStatusInputs.offsetHeight;
-            cashStatusInputs.style.animation = null;
-        }
-        if (!onlyCashStatus) {
-            // Calcular os totais finais
-            const supplyTotal = Math.min(cashTotal, targetAmount); // Limita o total em suprimentos a R$ 300,00
-            const excessAmount = Math.max(0, difference); // Pega apenas o valor excedente
-            const finalSeparateTotal = separateTotal + excessAmount; // Adiciona o excedente ao total em espécie
-            const finalTotal = supplyTotal + finalSeparateTotal + sheetTotal;
-
-            // Atualiza os totais no resumo
-            const prevFinalTotal = finalTotalElement.textContent;
-            totalCashElement.textContent = formatCurrency(supplyTotal);
-            totalSeparateElement.textContent = formatCurrency(finalSeparateTotal);
-            totalSheetElement.textContent = formatCurrency(sheetTotal);
-            finalTotalElement.textContent = formatCurrency(finalTotal);
-            if (finalTotalElement.textContent !== prevFinalTotal) {
-                finalTotalElement.classList.remove('pulse-final-total');
-                void finalTotalElement.offsetWidth;
-                finalTotalElement.classList.add('pulse-final-total');
-            }
-
-            // Mostra ou esconde o total final baseado nas condições: pelo menos um campo de cédula > 0 E valor separado > 0
-            const finalTotalContainer = document.getElementById('finalTotalContainer');
-            const separateValue = parseInputValue(separateValueInput.value);
-            // Verifica se algum campo de cédula tem valor > 0
-            const hasCash = Object.values(cashInputs).some(input => {
-                const val = parseInputValue(input.value);
-                return val && val > 0;
-            });
-            if (hasCash && separateValue !== null) {
-                finalTotalContainer.style.display = 'flex';
-                finalTotalContainer.classList.remove('pulse-final-total');
-                void finalTotalContainer.offsetWidth; // Força reflow para reiniciar animação
-                finalTotalContainer.classList.add('pulse-final-total');
-            } else {
-                finalTotalContainer.style.display = 'none';
-                finalTotalContainer.classList.remove('pulse-final-total');
-            }
-        }
-    }
-
-    // Função para calcular o total em cédulas
-    function calculateCashTotal() {
-        let total = 0;
-        const inputs = ['cash2', 'cash5', 'cash10', 'cash20', 'cashLarger', 'cashCoins'];
-        inputs.forEach(id => {
-            const input = document.getElementById(id);
-            const value = input.value;
-            if (value) {
-                // Remove R$, espaços e converte vírgula para ponto
-                const cleanValue = value.replace('R$', '').trim().replace('.', '').replace(',', '.');
-                const numericValue = parseFloat(cleanValue);
-                if (!isNaN(numericValue)) {
-                    total += numericValue;
-                }
-            }
-        });
-        return total;
+        totalCashElement.textContent = money(result.supplyCents);
+        totalSeparateElement.textContent = money(result.combinedSeparateCents);
+        totalSheetElement.textContent = money(result.cardPixCents);
+        finalTotalElement.textContent = money(result.totalCents);
+        totalContainer.style.display = result.ready ? 'flex' : 'none';
+        hint.hidden = result.ready;
+        hint.textContent = 'Preencha a contagem e o dinheiro separado para ver o total.';
     }
 
     // Adicionar valor separado
@@ -673,7 +836,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Função para remover valor separado
-    window.removeSeparateValue = function(index) {
+    window.removeSeparateValue = function (index) {
         separateValues.splice(index, 1);
         updateSeparateValuesList();
         updateTotals();
@@ -720,8 +883,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 Object.keys(values.cashPage).forEach(id => {
                     const input = document.getElementById(id);
                     if (input && values.cashPage[id]) {
-                        const num = parseInputValue(values.cashPage[id]);
-                        input.value = num !== null ? formatCurrency(num) : '';
+                        const cents = CashCalculator.parseCurrencyCents(values.cashPage[id]);
+                        input.value = cents !== null ? formatCashAmount(cents) : values.cashPage[id];
                     }
                 });
             }
@@ -780,11 +943,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentPage = localStorage.getItem('currentPage') || 'main';
         const cashPage = document.getElementById('cashClosingPage');
         const mainPage = document.querySelector('.container');
+        customNotesPage.style.display = 'none';
         // Garante que clientesPage está definido
         if (typeof clientesPage === 'undefined' || !clientesPage) {
             window.clientesPage = document.getElementById('clientesPage');
         }
-        if (currentPage === 'cash') {
+        if (currentPage === 'custom-notes') {
+            mainPage.style.display = 'none';
+            cashPage.style.display = 'none';
+            clientesPage.style.display = 'none';
+            customNotesPage.style.display = 'block';
+        } else if (currentPage === 'cash') {
             cashPage.style.display = 'block';
             cashPage.classList.add('show');
             mainPage.style.display = 'none';
@@ -798,7 +967,8 @@ document.addEventListener('DOMContentLoaded', () => {
             cashPage.style.display = 'none';
             cashPage.classList.remove('show');
             mainPage.style.display = 'none';
-            renderClientesLista();
+            // Aguarda a inicialização dos controles antes de carregar a lista.
+            setTimeout(fetchAndRenderClientes, 0);
         } else {
             cashPage.style.display = 'none';
             cashPage.classList.remove('show');
@@ -845,6 +1015,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Adiciona um observer para monitorar mudanças na visibilidade da página de caixa
     const observer = new MutationObserver((mutations) => {
+        if (customNotesPage.style.display === 'block') {
+            localStorage.setItem('currentPage', 'custom-notes');
+            return;
+        }
         mutations.forEach((mutation) => {
             if (mutation.target.id === 'cashClosingPage') {
                 const isVisible = mutation.target.style.display === 'block';
@@ -878,26 +1052,45 @@ document.addEventListener('DOMContentLoaded', () => {
         if (clientesPage && clientesPage.style.display === 'block') {
             localStorage.setItem('currentPage', 'clientes');
         }
+        if (customNotesPage.style.display === 'block') localStorage.setItem('currentPage', 'custom-notes');
     });
 
-    // Botão de copiar total de fechamento de caixa
+    document.getElementById('customNotesBtn').addEventListener('click', () => {
+        document.querySelector('.app-side-menu').open = false;
+        document.querySelector('.container').style.display = 'none';
+        cashClosingPage.style.display = 'none';
+        clientesPage.style.display = 'none';
+        customNotesPage.style.display = 'block';
+        localStorage.setItem('currentPage', 'custom-notes');
+        renderPageNavigation();
+        customNotesPage.dispatchEvent(new Event('custom-notes-open'));
+    });
+    document.getElementById('backToMainFromNotes').addEventListener('click', () => {
+        customNotesPage.style.display = 'none';
+        document.querySelector('.container').style.display = 'block';
+        localStorage.setItem('currentPage', 'main');
+        createCells(currentPage);
+        renderPageNavigation();
+    });
+
+    // Confirma a cópia somente depois que a área de transferência aceita o valor.
     const copyFinalTotalBtn = document.getElementById('copyFinalTotal');
-    if (copyFinalTotalBtn) {
-        copyFinalTotalBtn.addEventListener('click', function() {
-            const finalTotalSpan = document.getElementById('finalTotal');
-            const value = finalTotalSpan ? finalTotalSpan.textContent.trim() : '';
-            if (value) {
-                navigator.clipboard.writeText(value);
-                // Feedback visual
-                copyFinalTotalBtn.innerHTML = '<i class="fas fa-check"></i>';
-                copyFinalTotalBtn.style.background = '#e8f5e9';
-                setTimeout(() => {
-                    copyFinalTotalBtn.innerHTML = `<span class="copy-svg"><svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 448 512\" width=\"1em\" height=\"1em\"><path d=\"M384 336l-192 0c-8.8 0-16-7.2-16-16l0-256c0-8.8 7.2-16 16-16l140.1 0L400 115.9 400 320c0 8.8-7.2 16-16 16zM192 384l192 0c35.3 0 64-28.7 64-64l0-204.1c0-12.7-5.1-24.9-14.1-33.9L366.1 14.1c-9-9-21.2-14.1-33.9-14.1L192 0c-35.3 0-64 28.7-64 64l0 256c0 35.3 28.7 64 64 64zM64 128c-35.3 0-64 28.7-64 64L0 448c0 35.3 28.7 64 64 64l192 0c35.3 0 64-28.7 64-64l0-32-48 0 0 32c0 8.8-7.2 16-16 16L64 464c-8.8 0-16-7.2-16-16l0-256c0-8.8 7.2-16 16-16l32 0 0-48-32 0z\"/></svg></span>`;
-                    copyFinalTotalBtn.style.background = 'none';
-                }, 1200);
-            }
-        });
+    async function copyClosingTotal() {
+        const status = document.getElementById('copyTotalStatus');
+        try {
+            await navigator.clipboard.writeText(finalTotalElement.textContent.trim());
+            status.textContent = 'Total copiado';
+        } catch (error) {
+            status.textContent = 'Não foi possível copiar. Tente novamente.';
+        }
+        setTimeout(() => { status.textContent = ''; }, 2500);
     }
+    copyFinalTotalBtn.addEventListener('click', async () => {
+        await copyClosingTotal();
+    });
+    document.getElementById('copyFinalTotalArea').addEventListener('click', async () => {
+        await copyClosingTotal();
+    });
 
     function clearCashPageFields() {
         cashPageInputIds.forEach(id => {
@@ -914,10 +1107,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function checkCashPageTimeout() {
         const startTime = localStorage.getItem(CASH_PAGE_TIMER_KEY);
         if (!startTime) return;
-        
+
         const now = Date.now();
         const elapsed = now - parseInt(startTime, 10);
-        
+
         if (elapsed >= CASH_PAGE_TIMEOUT) {
             clearCashPageFields();
             console.log('Campos da página de fechar caixa limpos após 10 minutos de inatividade');
@@ -952,7 +1145,7 @@ document.addEventListener('DOMContentLoaded', () => {
     cashPageInputIds.forEach(id => {
         const input = document.getElementById(id);
         if (input) {
-            input.addEventListener('input', function() {
+            input.addEventListener('input', function () {
                 // Inicia timer se há dados e não existe timer
                 startCashPageTimer();
                 // Para timer se não há dados
@@ -1014,12 +1207,13 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(checkExistingCashPageData, 1000);
 
     function showClientesPage() {
+        document.querySelector('.app-side-menu').open = false;
         document.querySelector('.container').style.display = 'none';
         document.getElementById('cashClosingPage').style.display = 'none';
         clientesPage.style.display = 'block';
         clientesPage.classList.add('show');
         localStorage.setItem('currentPage', 'clientes');
-        renderClientesLista();
+        fetchAndRenderClientes();
     }
     function hideClientesPage() {
         clientesPage.style.display = 'none';
@@ -1036,17 +1230,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => {
             createCells(currentPage);
             setTimeout(() => {
-                const grid = document.querySelector('.grid');
-                const start = (currentPage - 1) * CELLS_PER_PAGE + 1;
-                const end = currentPage * CELLS_PER_PAGE;
-                const lastNota = parseInt(localStorage.getItem('lastFocusedNotaNumber'));
-                if (!isNaN(lastNota) && lastNota >= start && lastNota <= end) {
-                    const inputToFocus = Array.from(grid.querySelectorAll('input'))
-                        .find(input => input.parentElement.querySelector('div').textContent.trim() === `NOTA ${lastNota}`);
-                    if (inputToFocus) {
-                        inputToFocus.focus();
-                    }
-                }
+                focusNextEmptyNote();
                 renderPageNavigation();
             }, 0);
         }, 0);
@@ -1092,202 +1276,121 @@ document.addEventListener('DOMContentLoaded', () => {
     async function removeCliente(id) {
         await db.collection('clientes').doc(id).delete();
     }
-    async function renderClientesLista() {
-        clientesLista.innerHTML = '<li style="color:#888;text-align:center;">Carregando...</li>';
-        let clientes = await getClientes();
-        clientesLista.innerHTML = '';
-        if (clientes.length === 0) {
-            clientesLista.innerHTML += '<li style="color:#888;text-align:center;">Nenhum cliente cadastrado.</li>';
-            return;
-        }
-        clientes.forEach((cliente) => {
-            const li = document.createElement('li');
-            li.className = 'cliente-item';
-            li.innerHTML = `
-                <div class="cliente-info">
-                    <span class="cliente-nome"><i class='fas fa-user'></i> <span class="nome-text">${cliente.nome}</span></span>
-                    <span class="cliente-cnpj"><i class='fas fa-id-card'></i> <span class="cnpj-text">${cliente.cnpj}</span></span>
-                </div>
-                <div class="cliente-actions" style="display:flex;align-items:center;gap:8px;">
-                    <button class="cliente-edit-btn" title="Editar" data-id="${cliente.id}"><i class="fas fa-edit"></i></button>
-                    <button class="cliente-remove-btn" title="Remover" data-id="${cliente.id}"><i class="fas fa-trash-alt"></i></button>
-                </div>
-            `;
-            clientesLista.appendChild(li);
-        });
-        // Remover cliente
-        clientesLista.querySelectorAll('.cliente-remove-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const id = this.getAttribute('data-id');
-                openConfirmRemoveClienteModal(id);
-            });
-        });
-        // Editar cliente
-        clientesLista.querySelectorAll('.cliente-edit-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const id = this.getAttribute('data-id');
-                const cliente = clientes.find(c => c.id === id);
-                if (cliente) openModalEditCliente(cliente);
-            });
-        });
-        // Copiar nome ao clicar
-        clientesLista.querySelectorAll('.cliente-nome').forEach(span => {
-            span.addEventListener('click', function() {
-                const nome = this.querySelector('.nome-text').textContent;
-                navigator.clipboard.writeText(nome);
-                const original = this.innerHTML;
-                this.innerHTML = '<i class="fas fa-user"></i> <span style="color:#09974b;font-weight:700;">Copiado!</span>';
-                setTimeout(() => { this.innerHTML = original; }, 1000);
-            });
-        });
-        // Copiar CPF/CNPJ ao clicar
-        clientesLista.querySelectorAll('.cliente-cnpj').forEach(span => {
-            span.addEventListener('click', function() {
-                const cnpj = this.querySelector('.cnpj-text').textContent;
-                navigator.clipboard.writeText(cnpj);
-                const original = this.innerHTML;
-                this.innerHTML = '<i class="fas fa-id-card"></i> <span style="color:#2563eb;font-weight:700;">Copiado!</span>';
-                setTimeout(() => { this.innerHTML = original; }, 1000);
-            });
+    // Função auxiliar para obter iniciais
+    function getInitials(name) {
+        return name
+            .split(' ')
+            .map(n => n[0])
+            .slice(0, 2)
+            .join('')
+            .toUpperCase();
+    }
+
+    // Search Logic
+    const searchInput = document.getElementById('searchCliente');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase();
+            renderClientesLista(term);
         });
     }
+
+    let allClientes = [];
+
+    async function fetchAndRenderClientes() {
+        clientesLista.innerHTML = '<div style="text-align:center;padding:40px;color:#888;width:100%;"><i class="fas fa-spinner fa-spin" style="font-size:2em;margin-bottom:10px;"></i><p>Carregando clientes...</p></div>';
+        allClientes = await getClientes();
+        renderClientesLista();
+    }
+
+    function renderClientesLista(searchTerm = searchInput.value) {
+        const term = normalizeClientSearch(searchTerm);
+        const documentTerm = cleanClientDocument(term);
+        const clientes = allClientes.filter(cliente => !term ||
+            normalizeClientSearch(cliente.nome).includes(term) ||
+            (documentTerm.length > 0 && cleanClientDocument(cliente.cnpj).includes(documentTerm)));
+        clientesLista.replaceChildren();
+        if (!clientes.length) {
+            const empty = document.createElement('li');
+            empty.className = 'empty-state';
+            const text = document.createElement('p');
+            text.textContent = term ? 'Nenhum cliente encontrado.' : 'Nenhum cliente cadastrado.';
+            empty.appendChild(text);
+            clientesLista.appendChild(empty);
+            return;
+        }
+        clientes.forEach(cliente => {
+            const li = document.createElement('li');
+            li.className = 'cliente-card';
+            li.innerHTML = `
+                <button type="button" class="client-copy-field cliente-nome" data-copy="nome">
+                    <span class="client-field-value"></span><i class="far fa-copy" aria-hidden="true"></i>
+                </button>
+                <button type="button" class="client-copy-field cliente-cnpj" data-copy="documento">
+                    <span><small class="client-document-type"></small><span class="client-field-value"></span></span><i class="far fa-copy" aria-hidden="true"></i>
+                </button>
+                <div class="cliente-actions">
+                    <button type="button" class="action-btn edit-btn cliente-edit-btn" title="Editar cliente" aria-label="Editar cliente"><i class="fas fa-pen" aria-hidden="true"></i></button>
+                    <button type="button" class="action-btn remove-btn cliente-remove-btn" title="Excluir cliente" aria-label="Excluir cliente"><i class="far fa-trash-alt" aria-hidden="true"></i></button>
+                </div>`;
+            const nameButton = li.querySelector('[data-copy="nome"]');
+            nameButton.querySelector('.client-field-value').textContent = cliente.nome;
+            nameButton.setAttribute('aria-label', 'Copiar nome: ' + cliente.nome);
+            nameButton.title = 'Copiar nome';
+            const documentButton = li.querySelector('[data-copy="documento"]');
+            const type = clientDocumentType(cliente.cnpj);
+            const documentValue = isClientDocumentComplete(cliente.cnpj, type)
+                ? formatClientDocument(cliente.cnpj, type) : cliente.cnpj;
+            documentButton.querySelector('.client-document-type').textContent = type.toUpperCase();
+            documentButton.querySelector('.client-field-value').textContent = documentValue;
+            documentButton.setAttribute('aria-label', 'Copiar ' + type.toUpperCase() + ': ' + documentValue);
+            documentButton.title = 'Copiar ' + type.toUpperCase();
+            nameButton.addEventListener('click', () => copyClientField(nameButton, cliente.nome, 'Nome'));
+            documentButton.addEventListener('click', () => copyClientField(documentButton, documentValue, type.toUpperCase()));
+            li.querySelector('.cliente-edit-btn').addEventListener('click', () => openModalEditCliente(cliente));
+            li.querySelector('.cliente-remove-btn').addEventListener('click', () => openConfirmRemoveClienteModal(cliente.id));
+            clientesLista.appendChild(li);
+        });
+    }
+
+    let copyStatusTimeout;
+    async function copyClientField(button, value, label) {
+        const status = document.getElementById('clientCopyStatus');
+        try {
+            await navigator.clipboard.writeText(String(value));
+            button.classList.add('is-copied');
+            button.querySelector('i').className = 'fas fa-check';
+            status.textContent = label + ' copiado.';
+            setTimeout(() => {
+                button.classList.remove('is-copied');
+                button.querySelector('i').className = 'far fa-copy';
+            }, 1500);
+        } catch (error) {
+            status.textContent = 'Não foi possível copiar. Tente novamente.';
+        }
+        clearTimeout(copyStatusTimeout);
+        copyStatusTimeout = setTimeout(() => { status.textContent = ''; }, 4000);
+    }
+
+    const addClientFields = setupClientForm(addClienteForm, clienteNomeInput, clienteCNPJInput);
     if (addClienteForm) {
-        addClienteForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            let nome = clienteNomeInput.value.trim();
-            const cnpj = clienteCNPJInput.value.trim();
-            
-            // Validação com feedback visual
-            let isValid = true;
-            
-            if (!nome || nome.length < 3) {
-                clienteNomeInput.classList.add('shake');
-                clienteNomeInput.style.borderColor = '#ef4444';
-                clienteNomeInput.style.background = '#fef2f2';
-                isValid = false;
-                setTimeout(() => clienteNomeInput.classList.remove('shake'), 600);
-            }
-            
-            const cleanCnpj = cnpj.replace(/\D/g, '');
-            if (!cnpj || cleanCnpj.length < 11) {
-                clienteCNPJInput.classList.add('shake');
-                clienteCNPJInput.style.borderColor = '#ef4444';
-                clienteCNPJInput.style.background = '#fef2f2';
-                isValid = false;
-                setTimeout(() => clienteCNPJInput.classList.remove('shake'), 600);
-            }
-            
-            if (!isValid) return;
-            
-            nome = nome.toUpperCase();
-            
-            // Adiciona loading state
-            const submitBtn = addClienteForm.querySelector('button[type="submit"]');
-            const originalText = submitBtn.innerHTML;
-            
-            if (submitBtn) {
-                submitBtn.classList.add('loading');
-                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adicionando...';
-                submitBtn.disabled = true;
-            }
-            
+        addClienteForm.addEventListener('submit', async event => {
+            event.preventDefault();
+            if (!addClientFields.validate()) return;
+            const submitButton = addClienteForm.querySelector('button[type="submit"]');
+            if (submitButton.disabled) return;
+            submitButton.disabled = true;
+            submitButton.textContent = 'Cadastrando…';
+            addClientFields.status.textContent = '';
             try {
-                await addCliente(nome, cnpj);
-                
-                // Feedback de sucesso
-                if (submitBtn) {
-                    submitBtn.innerHTML = '<i class="fas fa-check"></i> Adicionado!';
-                    submitBtn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
-                }
-                
-                // Limpa campos
-                clienteNomeInput.value = '';
-                clienteCNPJInput.value = '';
-                
-                // Atualiza lista e fecha modal após delay
-                setTimeout(() => {
-                    renderClientesLista();
-                    closeModalAddClienteFn();
-                    
-                    // Restaura botão
-                    if (submitBtn) {
-                        submitBtn.classList.remove('loading');
-                        submitBtn.innerHTML = originalText;
-                        submitBtn.disabled = false;
-                        submitBtn.style.background = '';
-                    }
-                }, 800);
-                
+                await addCliente(clienteNomeInput.value.trim().toUpperCase(), formatClientDocument(clienteCNPJInput.value, addClientFields.getType()));
+                closeModalAddClienteFn();
+                fetchAndRenderClientes();
             } catch (error) {
-                console.error('Erro ao adicionar cliente:', error);
-                
-                // Feedback de erro
-                if (submitBtn) {
-                    submitBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Erro!';
-                    submitBtn.style.background = 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';
-                }
-                
-                // Restaura botão após delay
-                setTimeout(() => {
-                    if (submitBtn) {
-                        submitBtn.classList.remove('loading');
-                        submitBtn.innerHTML = originalText;
-                        submitBtn.disabled = false;
-                        submitBtn.style.background = '';
-                    }
-                }, 2000);
-            }
-        });
-        // Formatar CPF/CNPJ ao digitar
-        clienteCNPJInput.addEventListener('input', function(e) {
-            let v = this.value.replace(/\D/g, '');
-            
-            // Limita o tamanho baseado no tipo de documento
-            if (v.length <= 11) {
-                // CPF: máximo 11 dígitos
-                if (v.length > 11) v = v.slice(0, 11);
-                // Formatação CPF: XXX.XXX.XXX-XX
-                v = v.replace(/(\d{3})(\d)/, '$1.$2');
-                v = v.replace(/(\d{3})(\d)/, '$1.$2');
-                v = v.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
-            } else {
-                // CNPJ: máximo 14 dígitos
-                if (v.length > 14) v = v.slice(0, 14);
-                // Formatação CNPJ: XX.XXX.XXX/XXXX-XX
-                v = v.replace(/(\d{2})(\d)/, '$1.$2');
-                v = v.replace(/(\d{3})(\d)/, '$1.$2');
-                v = v.replace(/(\d{3})(\d)/, '$1/$2');
-                v = v.replace(/(\d{4})(\d{1,2})$/, '$1-$2');
-            }
-            
-            this.value = v;
-            
-            // Validação visual
-            const cleanValue = v.replace(/\D/g, '');
-            if (cleanValue.length >= 11) {
-                this.style.borderColor = '#10b981';
-                this.style.background = '#f0fdf4';
-            } else if (cleanValue.length > 0) {
-                this.style.borderColor = '#f59e0b';
-                this.style.background = '#fffbeb';
-            } else {
-                this.style.borderColor = '#e5e7eb';
-                this.style.background = '#fafafa';
-            }
-        });
-        
-        // Validação para o campo nome
-        clienteNomeInput.addEventListener('input', function(e) {
-            const value = this.value.trim();
-            if (value.length >= 3) {
-                this.style.borderColor = '#10b981';
-                this.style.background = '#f0fdf4';
-            } else if (value.length > 0) {
-                this.style.borderColor = '#f59e0b';
-                this.style.background = '#fffbeb';
-            } else {
-                this.style.borderColor = '#e5e7eb';
-                this.style.background = '#fafafa';
+                addClientFields.status.textContent = 'Não foi possível salvar. Confira a conexão e tente novamente.';
+            } finally {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Cadastrar cliente';
             }
         });
     }
@@ -1298,6 +1401,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeModalAddCliente = document.getElementById('closeModalAddCliente');
 
     function openModalAddCliente() {
+        addClientFields.reset();
         modalAddCliente.style.display = 'flex';
         // Adiciona classe para animação de entrada
         setTimeout(() => {
@@ -1323,16 +1427,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const cnpjInput = document.getElementById('clienteCNPJ');
             if (nomeInput) nomeInput.value = '';
             if (cnpjInput) cnpjInput.value = '';
+            addClientFields.reset();
+            abrirModalClienteBtn.focus();
         }, 400);
     }
     if (abrirModalClienteBtn) abrirModalClienteBtn.addEventListener('click', openModalAddCliente);
     if (closeModalAddCliente) closeModalAddCliente.addEventListener('click', closeModalAddClienteFn);
     if (modalAddCliente) {
-        modalAddCliente.addEventListener('click', function(e) {
+        modalAddCliente.addEventListener('click', function (e) {
             if (e.target === modalAddCliente) closeModalAddClienteFn();
         });
     }
-    document.addEventListener('keydown', function(e) {
+    document.addEventListener('keydown', function (e) {
         if (modalAddCliente && modalAddCliente.style.display === 'flex' && e.key === 'Escape') closeModalAddClienteFn();
     });
 
@@ -1343,12 +1449,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const editClienteNome = document.getElementById('editClienteNome');
     const editClienteCNPJ = document.getElementById('editClienteCNPJ');
     let clienteEditandoId = null;
+    let editClienteTrigger = null;
+    const editClientFields = setupClientForm(editClienteForm, editClienteNome, editClienteCNPJ);
 
     function openModalEditCliente(cliente) {
+        editClienteTrigger = document.activeElement;
         modalEditCliente.style.display = 'flex';
         document.body.style.overflow = 'hidden';
+        editClientFields.reset();
+        editClientFields.setType(clientDocumentType(cliente.cnpj));
         editClienteNome.value = cliente.nome;
-        editClienteCNPJ.value = cliente.cnpj;
+        editClienteCNPJ.value = isClientDocumentComplete(cliente.cnpj, editClientFields.getType())
+            ? formatClientDocument(cliente.cnpj, editClientFields.getType()) : cliente.cnpj;
         clienteEditandoId = cliente.id;
         setTimeout(() => { editClienteNome.focus(); }, 100);
     }
@@ -1362,58 +1474,40 @@ document.addEventListener('DOMContentLoaded', () => {
             editClienteNome.value = '';
             editClienteCNPJ.value = '';
             clienteEditandoId = null;
+            if (editClienteTrigger && editClienteTrigger.isConnected) editClienteTrigger.focus();
         }, 320);
     }
     if (closeModalEditCliente) closeModalEditCliente.addEventListener('click', closeModalEditClienteFn);
     if (modalEditCliente) {
-        modalEditCliente.addEventListener('click', function(e) {
+        modalEditCliente.addEventListener('click', function (e) {
             if (e.target === modalEditCliente) closeModalEditClienteFn();
         });
     }
-    document.addEventListener('keydown', function(e) {
+    document.addEventListener('keydown', function (e) {
         if (modalEditCliente && modalEditCliente.style.display === 'flex' && e.key === 'Escape') closeModalEditClienteFn();
     });
     if (editClienteForm) {
-        editClienteForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            if (!clienteEditandoId) return;
-            const nome = editClienteNome.value.trim();
-            const cnpj = editClienteCNPJ.value.trim();
-            if (!nome || !cnpj) return;
-            // Animação de clique no botão
-            const submitBtn = editClienteForm.querySelector('button[type="submit"]');
-            if (submitBtn) {
-                submitBtn.classList.add('clicked');
-                setTimeout(() => submitBtn.classList.remove('clicked'), 180);
+        editClienteForm.addEventListener('submit', async event => {
+            event.preventDefault();
+            if (!clienteEditandoId || !editClientFields.validate()) return;
+            const submitButton = editClienteForm.querySelector('button[type="submit"]');
+            if (submitButton.disabled) return;
+            submitButton.disabled = true;
+            submitButton.textContent = 'Salvando…';
+            editClientFields.status.textContent = '';
+            try {
+                await db.collection('clientes').doc(clienteEditandoId).update({
+                    nome: editClienteNome.value.trim(),
+                    cnpj: formatClientDocument(editClienteCNPJ.value, editClientFields.getType())
+                });
+                closeModalEditClienteFn();
+                fetchAndRenderClientes();
+            } catch (error) {
+                editClientFields.status.textContent = 'Não foi possível salvar. Confira a conexão e tente novamente.';
+            } finally {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Salvar alterações';
             }
-            await db.collection('clientes').doc(clienteEditandoId).update({ nome, cnpj });
-            closeModalEditClienteFn();
-            renderClientesLista();
-        });
-        
-        // Formatar CPF/CNPJ ao digitar no modal de editar
-        editClienteCNPJ.addEventListener('input', function(e) {
-            let v = this.value.replace(/\D/g, '');
-            
-            // Limita o tamanho baseado no tipo de documento
-            if (v.length <= 11) {
-                // CPF: máximo 11 dígitos
-                if (v.length > 11) v = v.slice(0, 11);
-                // Formatação CPF: XXX.XXX.XXX-XX
-                v = v.replace(/(\d{3})(\d)/, '$1.$2');
-                v = v.replace(/(\d{3})(\d)/, '$1.$2');
-                v = v.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
-            } else {
-                // CNPJ: máximo 14 dígitos
-                if (v.length > 14) v = v.slice(0, 14);
-                // Formatação CNPJ: XX.XXX.XXX/XXXX-XX
-                v = v.replace(/(\d{2})(\d)/, '$1.$2');
-                v = v.replace(/(\d{3})(\d)/, '$1.$2');
-                v = v.replace(/(\d{3})(\d)/, '$1/$2');
-                v = v.replace(/(\d{4})(\d{1,2})$/, '$1-$2');
-            }
-            
-            this.value = v;
         });
     }
 
@@ -1437,18 +1531,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (closeModalRemoveCliente) closeModalRemoveCliente.addEventListener('click', closeConfirmRemoveClienteModal);
     if (confirmRemoveClienteNo) confirmRemoveClienteNo.addEventListener('click', closeConfirmRemoveClienteModal);
     if (confirmRemoveClienteModal) {
-        confirmRemoveClienteModal.addEventListener('click', function(e) {
+        confirmRemoveClienteModal.addEventListener('click', function (e) {
             if (e.target === confirmRemoveClienteModal) closeConfirmRemoveClienteModal();
         });
     }
-    document.addEventListener('keydown', function(e) {
+    document.addEventListener('keydown', function (e) {
         if (confirmRemoveClienteModal && confirmRemoveClienteModal.style.display === 'flex' && e.key === 'Escape') closeConfirmRemoveClienteModal();
     });
     if (confirmRemoveClienteYes) {
-        confirmRemoveClienteYes.addEventListener('click', async function() {
+        confirmRemoveClienteYes.addEventListener('click', async function () {
             if (clienteRemoverId) {
                 await removeCliente(clienteRemoverId);
-                renderClientesLista();
+                fetchAndRenderClientes();
             }
             closeConfirmRemoveClienteModal();
         });
@@ -1463,15 +1557,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Restaurar página atual e totalPages ao carregar
     (function restorePageStateVars() {
         const savedPage = parseInt(localStorage.getItem('currentCellPage'));
-        const savedTotal = parseInt(localStorage.getItem('totalCellPages'));
-        const page2Created = localStorage.getItem('cellPage2Created') === 'true';
-        if (!isNaN(savedPage) && savedPage > 0) currentPage = savedPage;
-        if (page2Created) {
-            totalPages = 2;
-        } else if (!isNaN(savedTotal) && savedTotal > 0) {
-            totalPages = savedTotal;
-        } else {
-            totalPages = Math.max(1, Math.ceil(getMaxNotaIndex() / CELLS_PER_PAGE));
-        }
+        currentPage = isFirstNotePageComplete(localStorage) && savedPage === 2 ? 2 : 1;
+        totalPages = 2;
+        createCells(currentPage);
+        renderPageNavigation();
+        updateTotal();
     })();
 });

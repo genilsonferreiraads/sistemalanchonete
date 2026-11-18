@@ -1,0 +1,35 @@
+IMPRESSAO DIRETA - LIMARQUES
+
+Execute Configurar-impressao-direta.cmd UMA VEZ no PC da lanchonete.
+Use o mesmo usuario do Windows que opera o caixa.
+
+O configurador:
+- Localiza uma Epson instalada e verifica a largura de bobina no driver.
+- Seleciona a Epson como impressora padrao do Windows.
+- Ativa impressao silenciosa no Chrome e/ou Edge, versao 144 ou superior.
+- Remove cabecalhos e rodapes do navegador; o texto do comprovante permanece.
+- Guarda a configuracao anterior para permitir restauracao.
+
+Depois da mensagem CONFIGURADO COM SUCESSO:
+1. Feche e reabra o navegador que voce ja utiliza. Salve trabalhos antes de fechar.
+2. Abra a pagina do Limarques no mesmo navegador/perfil de sempre.
+3. No campo Papel, selecione 58 mm ou 80 mm, conforme indicado pelo configurador.
+4. Os botoes Imprimir cartao e Pix e Imprimir fechamento passam a imprimir direto.
+
+Se o driver estiver em A4/Carta, abra as preferencias de impressao da Epson no
+Windows, selecione o papel de bobina correto e execute o configurador novamente.
+O programa nao altera o driver nem inventa um tamanho de papel que ele nao suporte.
+
+IMPORTANTE: a impressao silenciosa e a retirada de cabecalhos valem para todas as
+paginas dos navegadores configurados, neste usuario do Windows. O instalador nao
+fecha janelas, nao envia trabalhos de impressao e nao altera dados de vendas.
+Se o PC tiver politicas de empresa conflitantes, o configurador avisa e nao aplica.
+
+Para desfazer, execute Restaurar-impressao.cmd e reabra o navegador.
+
+Os arquivos .ps1 permitem revisar os comandos. Os arquivos .cmd executam os mesmos
+comandos diretamente, sem alterar a politica de execucao de scripts do Windows.
+
+Documentacao oficial:
+https://learn.microsoft.com/en-us/deployedge/microsoft-edge-policies/SilentPrintingEnabled
+https://chromeenterprise.google/intl/es-419_ALL/policies/silent-printing-enabled/

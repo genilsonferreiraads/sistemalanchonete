@@ -1,10 +1,21 @@
-const CACHE_NAME = 'planilha-cartao-v1';
+const CACHE_NAME = 'planilha-cartao-v4';
 const FILES_TO_CACHE = [
   './',
   './index.html',
   './styles.css',
+  './ui.css',
   './script.js',
-  './images/favicon.ico',
+  './cash-calculator.js',
+  './note-composer.js',
+  './notes-page.js',
+  './notes-page.css',
+  './images/favicon.svg',
+  './images/cash-2.svg',
+  './images/cash-5.svg',
+  './images/cash-10.svg',
+  './images/cash-20.svg',
+  './images/cash-larger.svg',
+  './images/cash-coins.svg',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css'
 ];
 
@@ -50,4 +61,4 @@ self.addEventListener('fetch', event => {
         return caches.match(event.request);
       })
   );
-}); 
+});

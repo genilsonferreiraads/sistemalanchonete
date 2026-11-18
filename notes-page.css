@@ -1,0 +1,81 @@
+#customNoteReceipt { display: none; }
+.custom-note-paper { box-sizing: border-box; max-width: 100%; padding: 4mm; color: #000; background: #fff; font: 11pt/1.45 Arial, sans-serif; overflow-wrap: anywhere; }
+.note-paper-header { text-align: center; border-bottom: 1px dashed #aaa; padding-bottom: 3mm; margin-bottom: 4mm; }
+.note-paper-header h2 { margin: 0 0 2mm; font: bold 12pt/1.3 Arial, sans-serif; color: #000; }
+.note-paper-header p { margin: 0; font-size: 8pt; }
+.note-paper-field { margin: 4mm 0; break-inside: avoid; }
+.note-paper-field h3 { margin: 0 0 1mm; font: bold 9pt/1.4 Arial, sans-serif; color: #000; }
+.note-paper-custom-label { margin: 0 0 1mm; font: 10pt/1.4 Arial, sans-serif; color: #000; }
+.note-paper-text { margin: 0; white-space: pre-wrap; }
+.note-paper-value { margin: 0; font: 900 28pt/1.2 Arial, sans-serif; letter-spacing: -0.5pt; white-space: nowrap; }
+
+@media screen {
+    .custom-notes-page { box-sizing: border-box; width: 100%; max-width: 1000px; }
+    .custom-notes-header { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+    .custom-notes-header h1 { margin: 0; color: var(--ink); font-size: 22px; font-weight: 600; letter-spacing: -0.7px; }
+    .custom-notes-actions { display: flex; align-items: center; gap: 12px; margin-left: auto; }
+    .note-print-button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 10px 16px; border: 0; border-radius: 8px; background: var(--green); color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; }
+    .note-print-button:hover { background: #076b3e; }
+    .note-print-button:disabled { background: #dce7df; color: #92a398; cursor: default; }
+    .custom-notes-layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: start; gap: 20px; }
+    .note-editor-panel, .note-preview-panel { min-width: 0; padding: 22px; border: 1px solid var(--line); border-radius: 14px; background: #fff; }
+    .note-editor-panel > h2, .note-preview-panel > h2 { margin: 0 0 18px; color: var(--ink); font-size: 14px; font-weight: 600; }
+    .note-add-field { display: flex; gap: 8px; padding-top: 16px; margin-top: 16px; border-top: 1px solid var(--line); }
+    .note-add-type-picker { flex: 1; min-width: 0; }
+    .note-add-type-picker .note-type-trigger { box-sizing: border-box; width: 100%; min-height: 40px; margin: 0; padding: 9px 12px; border: 1px solid #dce5de; border-radius: 8px; background: #f8faf8; color: #52635a; font-size: 11px; }
+    .note-add-type-picker .note-type-trigger > span { flex: 1; text-align: left; }
+    #addNoteField { padding: 10px 12px; border: 1px solid #dce5de; border-radius: 8px; background: #fff; color: var(--green); font-size: 11px; font-weight: 600; cursor: pointer; }
+    #addNoteField:disabled { opacity: 0.4; cursor: default; }
+    .note-fields { max-height: max(180px, calc(100dvh - 290px)); overflow-y: auto; padding: 2px 4px 2px 1px; scrollbar-width: thin; }
+    .note-editor-field { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; }
+    .note-editor-field:first-child { margin-top: 0; }
+    .note-editor-field-head { display: flex; align-items: center; justify-content: space-between; }
+    .note-type-trigger { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; padding: 5px 9px; margin-left: -8px; border: 0; border-radius: 7px; background: transparent; color: var(--green); font: 600 12px 'Montserrat', Arial, sans-serif; cursor: pointer; }
+    .note-type-trigger:hover, .note-type-trigger[aria-expanded="true"] { background: #edf5ef; }
+    .note-type-trigger > i:first-child { width: 14px; font-size: 13px; color: #76a18a; }
+    .note-type-chevron { margin-left: 4px; color: #93a99a; font-size: 9px; }
+    .note-type-trigger[aria-expanded="true"] .note-type-chevron { transform: rotate(180deg); }
+    .note-type-options { position: fixed; inset: auto; box-sizing: border-box; width: 214px; margin: 0; padding: 5px; border: 1px solid #e1e9e3; border-radius: 11px; background: #fff; color: var(--ink); box-shadow: 0 12px 32px #173e2620; }
+    .note-type-options:popover-open { display: flex; flex-direction: column; gap: 1px; }
+    .note-type-option { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 37px; padding: 9px 10px; border: 0; border-radius: 6px; background: transparent; color: #52635a; font: 500 12px 'Montserrat', Arial, sans-serif; text-align: left; cursor: pointer; }
+    .note-type-option:hover { background: #f3f7f4; }
+    .note-type-option[aria-pressed="true"] { background: #edf6ef; color: var(--green); font-weight: 600; }
+    .note-type-option > i:first-child { width: 16px; color: #88a191; font-size: 13px; }
+    .note-type-check { margin-left: auto; color: var(--green); font-size: 11px; }
+    .note-editor-field-head label { color: #52635a; font-size: 12px; font-weight: 500; }
+    .note-field-actions { display: flex; align-items: center; gap: 3px; }
+    .note-value-heading { display: flex; flex-direction: column; gap: 3px; }
+    .note-value-caption { color: #8b9b90; font-size: 11px; }
+    .note-value-caption[hidden] { display: none; }
+    .note-value-label-toggle { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: #91a297; font-size: 11px; cursor: pointer; }
+    .note-value-label-toggle:hover, .note-value-label-toggle[aria-expanded="true"] { color: var(--green); background: #eef6f0; }
+    .note-value-label-input[hidden] { display: none; }
+    .note-remove-field { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: #9aa59e; cursor: pointer; }
+    .note-remove-field:hover { color: #a6534b; background: #fcf1ee; }
+    .note-editor-field input, .note-editor-field textarea { box-sizing: border-box; width: 100%; min-height: 42px; padding: 11px 12px; border: 1px solid #dce5de; border-radius: 8px; background: #fbfcfb; color: #233d2d; font: 14px/1.5 'Segoe UI', Arial, sans-serif; }
+    .note-editor-field textarea { min-height: 82px; resize: vertical; }
+    .note-editor-field input:focus, .note-editor-field textarea:focus { outline: 2px solid #09834b12; border-color: var(--green); background: #fff; }
+    .note-editor-field [aria-invalid="true"] { border-color: #bd6a60; background: #fff8f6; }
+    .note-editor-field input::placeholder, .note-editor-field textarea::placeholder { color: #a1ada4; }
+    .note-status { margin: 12px 0 0; font-size: 11px; line-height: 1.5; color: #ac5147; }
+    .note-status:empty { display: none; }
+    .note-draft-status, .note-editor-empty { color: #8a988f; font-size: 10px; line-height: 1.5; }
+    .note-draft-status { margin: 16px 0 0; }
+    .note-preview-stage { display: flex; justify-content: center; align-items: flex-start; padding: 18px 10px; max-height: calc(100dvh - 185px); min-height: 200px; overflow: auto; border-radius: 8px; background: #f1f4f1; scrollbar-width: thin; }
+    .note-preview-stage .custom-note-paper { flex-shrink: 0; border: 1px solid #e2e8e2; border-radius: 3px; }
+    .note-preview-empty { padding: 14px 0; color: #a2ada5; font-size: 10pt; text-align: center; }
+    .note-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    @media (max-width: 760px) {
+        .custom-notes-header { flex-wrap: wrap; gap: 12px; }
+        .custom-notes-header h1 { font-size: 20px; }
+        .custom-notes-actions { width: 100%; justify-content: flex-end; }
+        .custom-notes-layout { grid-template-columns: 1fr; }
+        .note-editor-panel, .note-preview-panel { padding: 18px; }
+    }
+}
+@media print {
+    html:has(body.printing-custom-note), body.printing-custom-note { width: auto !important; min-width: 0 !important; height: auto !important; min-height: 0 !important; margin: 0 !important; padding: 0 !important; transform: none !important; background: #fff !important; overflow: visible !important; }
+    body.printing-custom-note { display: block !important; }
+    body.printing-custom-note > :not(#customNoteReceipt) { display: none !important; }
+    body.printing-custom-note #customNoteReceipt { display: block !important; margin: 0; }
+}
