@@ -295,7 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
         receipt.classList.add('note-receipt-measuring');
         let height;
         try {
-            height = NoteComposer.paperHeight(receipt.offsetHeight);
+            height = NoteComposer.paperHeight(receipt.offsetHeight, width);
         } finally {
             receipt.classList.remove('note-receipt-measuring');
         }

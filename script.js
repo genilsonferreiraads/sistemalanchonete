@@ -656,7 +656,7 @@ document.addEventListener('DOMContentLoaded', () => {
         receipt.classList.add('receipt-measuring');
         let paperHeight;
         try {
-            paperHeight = Math.ceil(receipt.offsetHeight * 25.4 / 96) + 1;
+            paperHeight = NoteComposer.paperHeight(receipt.offsetHeight, paperWidth);
         } finally {
             receipt.classList.remove('receipt-measuring');
         }

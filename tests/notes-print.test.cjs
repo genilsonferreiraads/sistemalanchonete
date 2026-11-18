@@ -48,10 +48,10 @@ for (const width of ['58', '80']) {
         assert.equal(fields[2].value, '150');
     });
 }
-test('nota curta usa a altura do papel real sem reservar um mínimo de seis centímetros', () => {
+test('nota curta de 80 mm usa o menor papel em retrato para evitar rotação no driver', () => {
     const state = setup([{ id: '1', type: 'aviso', value: 'Retirar no balcão' }], '80', false, 135);
     state.click();
-    assert.match(state.printStyle.textContent, /size: 80mm 37mm/);
+    assert.match(state.printStyle.textContent, /size: 80mm 81mm/);
 });
 
 test('valor inválido não é enviado à impressão e recebe foco para correção', () => {

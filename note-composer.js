@@ -56,8 +56,11 @@ const NoteComposer = (() => {
             return { ...field, locked };
         });
     }
-    function paperHeight(contentPixels) {
-        return Math.max(1, Math.min(2500, Math.ceil(contentPixels * 25.4 / 96) + 1));
+    function paperHeight(contentPixels, paperWidth = 80) {
+        const width = Number(paperWidth) === 58 ? 58 : 80;
+        // Uma folha mais larga que alta é enviada como paisagem por navegadores/drivers.
+        // Reserva apenas o mínimo em retrato; a redução de branco da Epson pode cortar a sobra.
+        return Math.max(width + 1, Math.min(2500, Math.ceil(contentPixels * 25.4 / 96) + 1));
     }
     function createDraft(fields, now = Date.now()) {
         return { fields: normalize(fields), expiresAt: now + DRAFT_TTL };

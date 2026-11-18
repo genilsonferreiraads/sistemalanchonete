@@ -70,10 +70,21 @@ test('limita rascunhos grandes para manter o editor utilizável', () => {
     assert.equal(result[0].label.length, 40);
 });
 test('comprimento do cupom acompanha o conteúdo com margem e limite de página', () => {
-    assert.equal(paperHeight(0), 1);
-    assert.equal(paperHeight(100), 28);
+    assert.equal(paperHeight(0), 81);
+    assert.equal(paperHeight(100), 81);
     assert.ok(paperHeight(600) > paperHeight(300));
     assert.equal(paperHeight(100000), 2500);
+});
+
+test('bobinas 58 e 80 mm nunca geram página em paisagem, inclusive para notas muito curtas', () => {
+    for (const width of [58, 80]) {
+        for (let pixels = 0; pixels <= 9000; pixels += 17) {
+            const height = paperHeight(pixels, width);
+            assert.ok(height > width);
+            assert.ok(height >= Math.ceil(pixels * 25.4 / 96) + 1);
+        }
+        assert.equal(paperHeight(100, String(width)), width + 1);
+    }
 });
 
 test('nova nota já abre com observação e valor, ambos vazios', () => {
